@@ -1,0 +1,230 @@
+@import 'tailwindcss';
+
+/* ==========================================================================
+   Design tokens — LeetCode's actual values.
+
+   Dark is the primary theme. Light exists as tokens only until P7; there is
+   no ThemeToggle before then, because shipping a toggle that does nothing is
+   worse than shipping no toggle.
+   ========================================================================== */
+
+@theme {
+  /* dark (default) */
+  --color-bg: #1a1a1a;
+  --color-surface: #282828;
+  --color-surface-alt: #303030;
+  --color-border: #3e3e3e;
+  --color-text: #eff1f6;
+  --color-text-muted: #8a8a8a;
+  --color-easy: #00b8a3;
+  --color-medium: #ffb800;
+  --color-hard: #ff375f;
+  --color-accent: #ffa116; /* LeetCode orange — CTAs only */
+  --color-correct: #00b8a3;
+  --color-incorrect: #ff375f;
+
+  /* light — tokens defined now, applied at P7 */
+  --color-bg-light: #ffffff;
+  --color-surface-light: #f7f8fa;
+  --color-border-light: #e0e0e0;
+  --color-text-light: #262626;
+  --color-muted-light: #616161;
+
+  /* Typography. Body is 14px: LeetCode is dense, and 16px body immediately
+     reads as a generic AI-built site. */
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: 'SF Mono', Monaco, Menlo, Consolas, monospace;
+
+  --text-xs: 12px;
+  --text-sm: 13px;
+  --text-base: 14px;
+  --text-md: 16px;
+  --text-lg: 18px;
+  --text-xl: 24px;
+
+  /* Spacing, 4px base. */
+  --spacing-1: 4px;
+  --spacing-2: 8px;
+  --spacing-3: 12px;
+  --spacing-4: 16px;
+  --spacing-6: 24px;
+  --spacing-8: 32px;
+
+  /* Radius: 4px flat, 8px maximum on cards only. Separation comes from 1px
+     borders, never shadows. */
+  --radius-sm: 2px;
+  --radius: 4px;
+  --radius-card: 8px;
+
+  /* Fixed chrome. Every piece of card math depends on this being 48px. */
+  --tabbar-height: 48px;
+}
+
+/* ==========================================================================
+   Base
+   ========================================================================== */
+
+html {
+  height: 100%;
+  /* Prevent iOS text inflation in landscape without disabling user zoom. */
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  height: 100%;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  /* The feed owns vertical scrolling; the body must never scroll sideways. */
+  overflow-x: hidden;
+  overscroll-behavior-y: none;
+}
+
+* {
+  /* Transitions are colour/opacity only and <=150ms. No page transitions. */
+  border-color: var(--color-border);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* Hide scrollbars on the snap containers without disabling scrolling. The
+   feed is a full-bleed card stack; a visible track breaks the edge-to-edge
+   look on desktop and does nothing on touch. */
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* ==========================================================================
+   Problem body — untrusted HTML from LeetCode, already sanitized twice.
+
+   Scoped styles rather than a prose plugin: the markup set is small and known
+   (p, pre, code, ul, ol, sup, sub, img, table), and a typography plugin would
+   impose its own scale over the 14px body.
+   ========================================================================== */
+
+.problem-body {
+  font-size: var(--text-base);
+  line-height: 1.6;
+  color: var(--color-text);
+  overflow-wrap: break-word;
+}
+
+.problem-body p {
+  margin: 0 0 12px;
+}
+
+.problem-body p:last-child {
+  margin-bottom: 0;
+}
+
+.problem-body strong,
+.problem-body b {
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.problem-body em,
+.problem-body i {
+  font-style: italic;
+}
+
+.problem-body code {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  background: var(--color-surface-alt);
+  border-radius: var(--radius-sm);
+  padding: 1px 4px;
+}
+
+.problem-body pre {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.5;
+  background: var(--color-surface-alt);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 12px;
+  margin: 0 0 12px;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* LeetCode nests <code> inside <pre> for example blocks; avoid double chrome. */
+.problem-body pre code {
+  background: transparent;
+  padding: 0;
+  font-size: inherit;
+}
+
+.problem-body ul,
+.problem-body ol {
+  margin: 0 0 12px;
+  padding-left: 22px;
+}
+
+.problem-body ul {
+  list-style: disc;
+}
+
+.problem-body ol {
+  list-style: decimal;
+}
+
+.problem-body li {
+  margin: 0 0 4px;
+}
+
+.problem-body sup {
+  vertical-align: super;
+  font-size: 10px;
+}
+
+.problem-body sub {
+  vertical-align: sub;
+  font-size: 10px;
+}
+
+.problem-body img {
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--radius);
+  margin: 8px 0;
+}
+
+.problem-body a {
+  color: var(--color-accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.problem-body table {
+  border-collapse: collapse;
+  margin: 0 0 12px;
+  font-size: 13px;
+  display: block;
+  overflow-x: auto;
+}
+
+.problem-body th,
+.problem-body td {
+  border: 1px solid var(--color-border);
+  padding: 6px 8px;
+  text-align: left;
+}
+
+.problem-body hr {
+  border: 0;
+  border-top: 1px solid var(--color-border);
+  margin: 16px 0;
+}

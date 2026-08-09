@@ -86,34 +86,61 @@ async function main(): Promise<void> {
   }
   if (capturesOk) console.log(`  PASS  all ${rows.length} rows carry the required captures`);
 
-  console.log('\n--- topic_text vs content_item_tags (silent-failure check) ---');
-  let driftOk = true;
-  for (const r of rows) {
-    const topicText = typeof r.metadata.topic_text === 'string' ? r.metadata.topic_text : '';
-    const fromText = topicText.split(' ').filter(Boolean).sort();
+  // This sweeps EVERY row, not the 50-row sample above. A sample missed a real
+  // bug once: the paid-only branch wrote metadata.topic_text but returned
+  // before the join write, leaving 734 rows drifted. All 734 were paid-only, so
+  // a sample of the first 50 (all free) reported PASS.
+  console.log('\n--- topic_text vs content_item_tags (ALL rows) ---');
+  const allRows: Array<{ id: string; slug: string; metadata: Record<string, unknown> }> = [];
+  for (let from = 0; ; from += 1000) {
+    const { data: page, error: pErr } = await db
+      .from('content_items')
+      .select('id, slug, metadata')
+      .order('sort_key', { ascending: true })
+      .range(from, from + 999);
+    if (pErr) throw new Error(pErr.message);
+    if (!page || page.length === 0) break;
+    allRows.push(...(page as Array<{ id: string; slug: string; metadata: Record<string, unknown> }>));
+    if (page.length < 1000) break;
+  }
 
+  let mismatches = 0;
+  for (let i = 0; i < allRows.length; i += 200) {
+    const batch = allRows.slice(i, i + 200);
     const { data: joins, error: jErr } = await db
       .from('content_item_tags')
-      .select('tags(slug)')
-      .eq('content_item_id', r.id);
+      .select('content_item_id, tags(slug)')
+      .in('content_item_id', batch.map((b) => b.id));
     if (jErr) throw new Error(jErr.message);
 
     // PostgREST types the embedded relation as an array here; normalize both
     // shapes rather than fighting the generated type.
-    const fromJoin = ((joins ?? []) as unknown as Array<{
+    const byItem = new Map<string, string[]>();
+    for (const j of (joins ?? []) as unknown as Array<{
+      content_item_id: string;
       tags: { slug: string } | Array<{ slug: string }> | null;
-    }>)
-      .flatMap((j) => (Array.isArray(j.tags) ? j.tags : j.tags ? [j.tags] : []))
-      .map((t) => t.slug)
-      .filter(Boolean)
-      .sort();
+    }>) {
+      const slugs = Array.isArray(j.tags) ? j.tags.map((t) => t.slug) : j.tags ? [j.tags.slug] : [];
+      byItem.set(j.content_item_id, [...(byItem.get(j.content_item_id) ?? []), ...slugs]);
+    }
 
-    if (JSON.stringify(fromText) !== JSON.stringify(fromJoin)) {
-      driftOk = false;
-      fail(`${r.slug}: topic_text [${fromText.join(' ')}] != join rows [${fromJoin.join(' ')}]`);
+    for (const r of batch) {
+      const topicText = typeof r.metadata.topic_text === 'string' ? r.metadata.topic_text : '';
+      const fromText = topicText.split(' ').filter(Boolean).sort();
+      const fromJoin = (byItem.get(r.id) ?? []).sort();
+      if (JSON.stringify(fromText) !== JSON.stringify(fromJoin)) {
+        if (mismatches < 5) {
+          fail(`${r.slug}: topic_text [${fromText.join(' ')}] != join rows [${fromJoin.join(' ')}]`);
+        }
+        mismatches++;
+      }
     }
   }
-  if (driftOk) console.log(`  PASS  topic_text matches content_item_tags on all ${rows.length} rows`);
+  if (mismatches === 0) {
+    console.log(`  PASS  topic_text matches content_item_tags on all ${allRows.length} rows`);
+  } else {
+    fail(`${mismatches} row(s) drifted in total`);
+  }
 
   console.log('\n--- sanitization ---');
   const withScript = rows.filter((r) => /<script|onerror=|javascript:/i.test(r.body_html ?? ''));

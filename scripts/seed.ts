@@ -160,6 +160,31 @@ async function updateRun(
 
 const tagIdCache = new Map<string, string>();
 
+/**
+ * Write the content_item_tags join rows for one item.
+ *
+ * BOTH the paid-only and free branches must call this. metadata.topic_text and
+ * these join rows are two views of the same normalizeTags() output, and if one
+ * is written without the other, topic search silently returns nothing — a
+ * failure with no error message. An earlier version of this file returned from
+ * the paid-only branch before reaching the join write, which left 734 paid rows
+ * carrying topic_text with no matching tags.
+ */
+async function writeTagJoins(
+  db: SupabaseClient,
+  contentItemId: string,
+  tags: NormalizedTag[],
+): Promise<void> {
+  if (tags.length === 0) return;
+  const tagIds = await ensureTagIds(db, tags);
+  if (tagIds.length === 0) return;
+  const { error } = await db.from('content_item_tags').upsert(
+    tagIds.map((tag_id) => ({ content_item_id: contentItemId, tag_id })),
+    { onConflict: 'content_item_id,tag_id', ignoreDuplicates: true },
+  );
+  if (error) throw new Error(`content_item_tags upsert failed: ${error.message}`);
+}
+
 async function ensureTagIds(db: SupabaseClient, tags: NormalizedTag[]): Promise<string[]> {
   const missing = tags.filter((t) => !tagIdCache.has(t.slug));
 
@@ -236,25 +261,33 @@ async function upsertProblem(
       topic_text: topicTextFrom(tags),
       list_hash: listHash,
     };
-    const { error } = await db.from('content_items').upsert(
-      {
-        source_id: SOURCE_ID,
-        external_id: externalId,
-        slug,
-        title: item.title ?? slug,
-        body_html: null,
-        body_format: 'html',
-        difficulty: normalizeDifficulty(item.difficulty),
-        metadata,
-        visibility: 'public',
-        owner_id: null,
-        content_hash: null,
-        sort_key: Number.parseInt(externalId, 10) || null,
-        synced_at: new Date().toISOString(),
-      },
-      { onConflict: 'source_id,external_id' },
-    );
+    const { data: upsertedPaid, error } = await db
+      .from('content_items')
+      .upsert(
+        {
+          source_id: SOURCE_ID,
+          external_id: externalId,
+          slug,
+          title: item.title ?? slug,
+          body_html: null,
+          body_format: 'html',
+          difficulty: normalizeDifficulty(item.difficulty),
+          metadata,
+          visibility: 'public',
+          owner_id: null,
+          content_hash: null,
+          sort_key: Number.parseInt(externalId, 10) || null,
+          synced_at: new Date().toISOString(),
+        },
+        { onConflict: 'source_id,external_id' },
+      )
+      .select('id')
+      .single();
     if (error) throw new Error(`paid-only upsert failed for ${slug}: ${error.message}`);
+
+    // Paid rows still carry tags. topic_text was just written above, so the
+    // join rows must be written too or the two drift apart.
+    await writeTagJoins(db, (upsertedPaid as { id: string }).id, tags);
     return 'paid-only';
   }
 
@@ -314,20 +347,10 @@ async function upsertProblem(
     .single();
   if (error) throw new Error(`upsert failed for ${slug}: ${error.message}`);
 
-  const contentItemId = (upserted as { id: string }).id;
-
-  // Same shared tag list -> join rows. Written every time so a tag change on an
-  // existing problem is reflected rather than accumulating stale rows.
-  if (tags.length > 0) {
-    const tagIds = await ensureTagIds(db, tags);
-    if (tagIds.length > 0) {
-      const { error: joinErr } = await db.from('content_item_tags').upsert(
-        tagIds.map((tag_id) => ({ content_item_id: contentItemId, tag_id })),
-        { onConflict: 'content_item_id,tag_id', ignoreDuplicates: true },
-      );
-      if (joinErr) throw new Error(`content_item_tags upsert failed for ${slug}: ${joinErr.message}`);
-    }
-  }
+  // Same shared tag list -> join rows, through the same helper the paid-only
+  // branch uses. Written every time so a tag change on an existing problem is
+  // reflected rather than accumulating stale rows.
+  await writeTagJoins(db, (upserted as { id: string }).id, tags);
 
   return 'written';
 }

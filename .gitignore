@@ -20,8 +20,7 @@ next-env.d.ts
 
 # sync artifacts
 .sync-checkpoint.json
-seed.log
-dev.log
+*.log
 
 # vercel
 .vercel

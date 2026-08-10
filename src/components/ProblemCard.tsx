@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ChevronLeft } from 'lucide-react';
 import { ProblemHeader } from './ProblemHeader';
 import { ProblemBody } from './ProblemBody';
@@ -19,6 +19,30 @@ import type { ContentItem } from '@/lib/types';
  */
 export function ProblemCard({ item }: { readonly item: ContentItem }) {
   const [inQuestions, setInQuestions] = useState(false);
+
+  // The fade only means "more below", so it must vanish at the end of the body
+  // and for bodies too short to scroll at all.
+  const bodyRef = useRef<HTMLDivElement | null>(null);
+  const [atBodyEnd, setAtBodyEnd] = useState(true);
+
+  const measureBody = useCallback(() => {
+    const el = bodyRef.current;
+    if (!el) return;
+    // 1px slack: fractional layout heights never sum to exactly scrollHeight.
+    setAtBodyEnd(el.scrollTop + el.clientHeight >= el.scrollHeight - 1);
+  }, []);
+
+  // Runs when the body row mounts (State A) and whenever it resizes — images
+  // and MathJax-style content settle after the first paint.
+  useEffect(() => {
+    const el = bodyRef.current;
+    if (!el) return;
+    measureBody();
+    const observer = new ResizeObserver(measureBody);
+    observer.observe(el);
+    for (const child of Array.from(el.children)) observer.observe(child);
+    return () => observer.disconnect();
+  }, [inQuestions, measureBody]);
 
   return (
     <article
@@ -55,13 +79,21 @@ export function ProblemCard({ item }: { readonly item: ContentItem }) {
         />
       ) : (
         <div className="relative min-h-0">
-          <div className="no-scrollbar h-full overflow-y-auto overscroll-y-contain px-4 pb-4">
+          {/* pb-10 clears the h-8 fade, so the last line is never sat on. */}
+          <div
+            ref={bodyRef}
+            onScroll={measureBody}
+            className="no-scrollbar h-full overflow-y-auto overscroll-y-contain px-4 pb-10"
+          >
             <ProblemBody html={item.body_html} format={item.body_format} />
           </div>
-          {/* Fade mask signalling more content below. */}
+          {/* Fade mask signalling more content below — hidden once there is none. */}
           <div
-            className="pointer-events-none absolute inset-x-0 bottom-0 h-8"
-            style={{ background: 'linear-gradient(to top, var(--color-bg), transparent)' }}
+            className="pointer-events-none absolute inset-x-0 bottom-0 h-8 transition-opacity duration-100"
+            style={{
+              background: 'linear-gradient(to top, var(--color-bg), transparent)',
+              opacity: atBodyEnd ? 0 : 1,
+            }}
             aria-hidden="true"
           />
         </div>

@@ -54,4 +54,4 @@ export interface McqStore {
 }
 
 export const MAX_SETS_PER_ITEM = 5;
-export const STORAGE_PREFIX = 'techdeck:mcq:';
+export const STORAGE_PREFIX = 'techdecks:mcq:';

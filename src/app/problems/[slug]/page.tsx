@@ -12,7 +12,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const db = await createClient();
   const item = await fetchItemBySlug(db, slug);
-  return { title: item ? `${item.title} — TechDeck` : 'TechDeck' };
+  return { title: item ? `${item.title} — TechDecks` : 'TechDecks' };
 }
 
 /**

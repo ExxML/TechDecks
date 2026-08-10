@@ -3,7 +3,7 @@ import './globals.css';
 import { TabBar } from '@/components/TabBar';
 
 export const metadata: Metadata = {
-  title: 'TechDeck',
+  title: 'TechDecks',
   description: 'Practice technical interview problems without typing code.',
 };
 

@@ -8,8 +8,8 @@ import { create } from 'zustand';
  * user's key lives in Supabase Vault instead.
  */
 
-const KEY_STORAGE = 'techdeck:gemini-key'; // sessionStorage
-const PREF_STORAGE = 'techdeck:prefs'; // localStorage
+const KEY_STORAGE = 'techdecks:gemini-key'; // sessionStorage
+const PREF_STORAGE = 'techdecks:prefs'; // localStorage
 
 type Prefs = {
   model: string | null;

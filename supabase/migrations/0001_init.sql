@@ -1,5 +1,5 @@
 -- =========================================================================
--- TechDeck — 0001_init.sql
+-- TechDecks — 0001_init.sql
 -- Schema, indexes, RLS on all nine tables, triggers, answer RPCs.
 --
 -- IDEMPOTENT. Safe to re-run. Every statement is guarded:

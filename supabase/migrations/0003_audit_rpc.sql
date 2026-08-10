@@ -1,5 +1,5 @@
 -- =========================================================================
--- TechDeck — 0003_audit_rpc.sql
+-- TechDecks — 0003_audit_rpc.sql
 -- Read-only audit helper for the RLS verification.
 --
 -- PostgREST cannot select from pg_tables, so scripts/rls-audit.ts has no way to

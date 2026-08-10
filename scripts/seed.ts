@@ -361,7 +361,7 @@ async function main(): Promise<void> {
   const db = adminClient();
   const lc = new LeetCodeClient({ verbose: true });
 
-  console.log('TechDeck seed — bulk load');
+  console.log('TechDecks seed — bulk load');
   console.log(`  limit=${limit ?? 'none'} forceDetail=${forceDetail} fresh=${fresh}`);
   console.log('');
 

@@ -8,7 +8,7 @@ import {
 
 /**
  * localStorage-backed McqStore for anonymous users. Most-recent-5 per problem
- * under `techdeck:mcq:{contentItemId}`, in the same JSON shape as the mcq_sets
+ * under `techdecks:mcq:{contentItemId}`, in the same JSON shape as the mcq_sets
  * column.
  *
  * Correctness is computed here rather than in SQL, which is safe only because

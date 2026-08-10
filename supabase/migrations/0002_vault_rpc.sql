@@ -1,5 +1,5 @@
 -- =========================================================================
--- TechDeck — 0002_vault_rpc.sql
+-- TechDecks — 0002_vault_rpc.sql
 -- Supabase Vault wrappers for storing a signed-in user's Gemini API key.
 --
 -- Kept separate from 0001_init.sql on purpose: a Vault problem must not be able
@@ -53,7 +53,7 @@ begin
 
   v_new := vault.create_secret(p_key,
              'gemini:' || v_uid::text || ':' || gen_random_uuid()::text,
-             'TechDeck Gemini key');
+             'TechDecks Gemini key');
 
   insert into user_settings (user_id, gemini_key_id) values (v_uid, v_new)
     on conflict (user_id) do update

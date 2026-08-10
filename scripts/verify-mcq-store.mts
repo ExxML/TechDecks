@@ -73,7 +73,7 @@ console.log('=== generated_at (load-bearing for the sign-in migration) ===');
   check('generated_at is a valid ISO timestamp', Number.isFinite(t));
   check('generated_at is roughly now', t >= before - 1000 && t <= Date.now() + 1000);
 
-  const raw = storage.getItem('techdeck:mcq:item-1') ?? '[]';
+  const raw = storage.getItem('techdecks:mcq:item-1') ?? '[]';
   check('generated_at survives the round-trip to storage', raw.includes('generated_at'));
 
   const parsed = JSON.parse(raw) as Array<Record<string, unknown>>;
@@ -189,10 +189,10 @@ console.log('\n=== remove / clear / corrupt data ===');
   await store.remove(list[0].id);
   check('remove deletes one set', (await store.list(ITEM)).length === list.length - 1);
 
-  storage.setItem('techdeck:mcq:corrupt', '{not json');
+  storage.setItem('techdecks:mcq:corrupt', '{not json');
   check('corrupt JSON yields an empty list, no throw', (await store.list('corrupt')).length === 0);
 
-  storage.setItem('techdeck:mcq:partial', JSON.stringify([{ id: 'x' }]));
+  storage.setItem('techdecks:mcq:partial', JSON.stringify([{ id: 'x' }]));
   check('entry missing required fields is dropped', (await store.list('partial')).length === 0);
 
   await store.clear(ITEM);

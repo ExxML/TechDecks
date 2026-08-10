@@ -4,13 +4,8 @@ import { createBrowserClient } from '@supabase/ssr';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 /**
- * Supabase client for Client Components.
- *
- * Anon key only — it ships in the bundle by design, and is safe solely because
- * RLS is enabled on every table (verified by the P0 matrix).
- *
- * Memoized: createBrowserClient is cheap but returning a new instance per call
- * would give each caller its own auth listener.
+ * Anon key only, which ships in the bundle by design and is safe because RLS is
+ * enabled on every table. Memoized so callers share one auth listener.
  */
 let cached: SupabaseClient | null = null;
 

@@ -1,6 +1,6 @@
 -- =========================================================================
 -- TechDeck — 0003_audit_rpc.sql
--- Read-only audit helper for the P0 RLS verification.
+-- Read-only audit helper for the RLS verification.
 --
 -- PostgREST cannot select from pg_tables, so scripts/rls-audit.ts has no way to
 -- assert "rowsecurity is true on every table" from outside the SQL editor.

@@ -3,10 +3,9 @@
  *
  *   npx tsx scripts/apply-migration.ts supabase/migrations/0003_audit_rpc.sql
  *
- * SETUP.md documents the SQL editor as the way to apply migrations, and that
- * remains the documented path for a human. This exists so the P0 idempotency
- * check ("run 0001_init.sql twice and confirm the second run is clean") can be
- * performed and shown rather than asserted.
+ * The SQL editor is the normal way to apply a migration by hand. This exists
+ * so a migration can be applied non-interactively, which is what makes the
+ * idempotency check — apply twice, confirm the second run is clean — runnable.
  *
  * Requires SUPABASE_ACCESS_TOKEN (a personal access token from
  * https://supabase.com/dashboard/account/tokens) and SUPABASE_PROJECT_REF.
@@ -37,7 +36,7 @@ async function main(): Promise<void> {
     throw new Error(
       'SUPABASE_ACCESS_TOKEN is not set. Create one at ' +
         'https://supabase.com/dashboard/account/tokens and add it to .env.local, ' +
-        'or paste the file into the SQL editor as documented in SETUP.md §2.',
+        'or paste the file into the Supabase SQL editor instead.',
     );
   }
 

@@ -5,14 +5,8 @@ import { usePathname } from 'next/navigation';
 import { Layers, Search, Bookmark, Settings } from 'lucide-react';
 
 /**
- * Fixed bottom tab bar, 48px.
- *
- * Not decoration: without it there is no path to Settings, and therefore no
- * path to entering a Gemini API key, which is the app's only real feature.
- * Bottom tabs are reachable one-handed and cost no card space.
- *
- * Cards are calc(100dvh - 48px) and the snap container is inset by this bar,
- * so its height is load-bearing for every piece of card math.
+ * Fixed bottom tab bar. Its 48px height is load-bearing: cards are
+ * calc(100dvh - 48px) and the snap container is inset by it.
  */
 const TABS = [
   { href: '/problems', label: 'Problems', Icon: Layers },

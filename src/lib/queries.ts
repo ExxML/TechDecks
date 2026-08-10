@@ -129,6 +129,17 @@ export async function fetchItemBySlug(
 }
 
 /**
+ * One problem by id, subject to the caller's RLS. Used by the generate route,
+ * which must not be usable to read a private problem the caller cannot see.
+ */
+export async function fetchItemById(db: SupabaseClient, id: string): Promise<ContentItem | null> {
+  const { data, error } = await db.from('content_items').select(ITEM_COLUMNS).eq('id', id).limit(1);
+  if (error) throw new Error(`item lookup failed: ${error.message}`);
+  const rows = (data ?? []) as unknown as RawRow[];
+  return rows.length > 0 ? mapRow(rows[0]) : null;
+}
+
+/**
  * The feed anchored to one problem: that card first, then the normal feed
  * continuing after it, so a deep link never dead-ends.
  */

@@ -1,5 +1,5 @@
 /**
- * P0 RLS audit — the full matrix, not a spot check.
+ * RLS audit — the full matrix, not a spot check.
  *
  *   npx tsx scripts/rls-audit.ts
  *
@@ -230,12 +230,12 @@ async function main(): Promise<void> {
   if (inconclusive.length > 0) {
     console.log(
       `\n  NOTE: ${inconclusive.length} probe(s) are inconclusive because the table is empty` +
-        ` at P0: ${inconclusive.join(', ')}.\n  Section 2b plants real rows to settle them.`,
+        `: ${inconclusive.join(', ')}.\n  Section 2b plants real rows to settle them.`,
     );
   }
 
   // -- 2b. plant rows, then prove anon cannot see them ----------------------
-  // The three user-owned tables are empty until auth exists (P3), so the reads
+  // The three user-owned tables are empty until a user signs in, so the reads
   // above prove nothing on their own. Insert real rows as service role against
   // a synthetic user, re-probe as anon, then clean up.
   console.log('\n=== 2b. Planted-row reads (settles the empty-table probes) ===\n');
@@ -318,8 +318,8 @@ async function main(): Promise<void> {
     console.log(`  ----  probe user ${delErr ? `NOT deleted: ${delErr.message}` : 'deleted (rows cascaded)'}`);
   }
 
-  // -- 3. the two the plan calls out by name --------------------------------
-  console.log('\n=== 3. Named checks from the plan ===\n');
+  // -- 3. the two destructive writes that matter most -----------------------
+  console.log('\n=== 3. Highest-risk anon writes ===\n');
   const tagDelete = await probe(anon, 'tags', 'delete');
   console.log(`  anon DELETE on tags       : ${tagDelete.ok ? '*** ALLOWED — FAIL ***' : 'rejected  PASS'}`);
   if (tagDelete.ok) failures++;

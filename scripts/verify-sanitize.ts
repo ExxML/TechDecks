@@ -8,8 +8,8 @@
  * <sup> for exponents, <code>/<pre> for samples, and <img> for diagrams, so a
  * sanitizer that strips those is as broken as one that lets scripts through.
  *
- * The render-side half of this check (a <script> planted in a real row must not
- * EXECUTE in the browser) belongs to P1 verification, once there is a renderer.
+ * The render-side half — a <script> planted in a real row must not execute in
+ * the browser — is checked against the running app instead.
  */
 
 import { sanitizeProblemHtml } from '../src/lib/sanitize';

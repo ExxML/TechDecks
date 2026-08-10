@@ -1,5 +1,5 @@
 /**
- * Step A — bulk load of the LeetCode catalog into content_items.
+ * Bulk load of the LeetCode catalog into content_items.
  *
  *   npx tsx scripts/seed.ts --limit 20      # smoke test, 20 problems
  *   npx tsx scripts/seed.ts                 # full run, ~2900 problems, ~50 min
@@ -10,12 +10,11 @@
  * here: sync writes public content_items rows that no RLS policy permits. This
  * script runs on the author's machine and in GitHub Actions, never on Vercel.
  *
- * Resume: sync_runs.cursor is "the number of slugs fully committed in this
- * run's ordered work list", written in the same step as each batch's upsert.
- * A crash resumes from there rather than restarting the 50-minute run. The
- * gitignored .sync-checkpoint.json caches the slug catalog only — it is never
- * the resume authority, because GitHub Actions runners are ephemeral and would
- * silently resume from zero on every run.
+ * Resume: sync_runs.cursor counts the slugs fully committed in this run's
+ * ordered work list, written alongside each batch's upsert, so a crash resumes
+ * rather than restarting the 50-minute run. The gitignored
+ * .sync-checkpoint.json caches the slug catalog only and is never the resume
+ * authority — CI runners are ephemeral and would resume from zero every time.
  */
 
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
@@ -166,9 +165,7 @@ const tagIdCache = new Map<string, string>();
  * BOTH the paid-only and free branches must call this. metadata.topic_text and
  * these join rows are two views of the same normalizeTags() output, and if one
  * is written without the other, topic search silently returns nothing — a
- * failure with no error message. An earlier version of this file returned from
- * the paid-only branch before reaching the join write, which left 734 paid rows
- * carrying topic_text with no matching tags.
+ * failure with no error message.
  */
 async function writeTagJoins(
   db: SupabaseClient,
@@ -364,7 +361,7 @@ async function main(): Promise<void> {
   const db = adminClient();
   const lc = new LeetCodeClient({ verbose: true });
 
-  console.log('TechDeck seed — Step A (bulk load)');
+  console.log('TechDeck seed — bulk load');
   console.log(`  limit=${limit ?? 'none'} forceDetail=${forceDetail} fresh=${fresh}`);
   console.log('');
 

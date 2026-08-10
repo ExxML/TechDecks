@@ -196,10 +196,7 @@ create index if not exists idx_ci_owner    on content_items (owner_id) where own
 -- Two Sum nowhere near the front. The partial predicate also excludes paid-only
 -- rows, whose body_html is null and which would render as blank full-screen cards.
 --
--- NOTE: the plan's Data Model section lists an earlier definition of idx_ci_feed
--- as (source_id, difficulty, id). The Feed Order section supersedes it — same
--- index name, and its reasoning explicitly rejects ordering by id. Only the
--- Feed Order definition is created here.
+
 create index if not exists idx_ci_feed on content_items (sort_key, id)
   where visibility = 'public' and body_html is not null;
 
@@ -242,7 +239,7 @@ begin
 end $$;
 -- Why the id desc tiebreak matters: created_at defaults to now(), which is
 -- TRANSACTION time, so a multi-row insert gives every row an identical timestamp.
--- The P3 sign-in migration inserts a user's whole localStorage history at once;
+-- The sign-in migration inserts a user's whole localStorage history at once;
 -- without a tiebreak, `offset 5` sorts arbitrarily and deletes an unpredictable
 -- subset, possibly including the row just inserted.
 --

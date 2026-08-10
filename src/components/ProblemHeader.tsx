@@ -2,11 +2,8 @@ import { DifficultyBadge } from './ui/Badge';
 import type { ContentItem } from '@/lib/types';
 
 /**
- * The density cap for the card.
- *
- * Title, difficulty, acRate, and AT MOST 3 tags. Nothing else — no likes,
- * dislikes, model, or history chips. Adding a row here is what turns the card
- * into a dashboard.
+ * The card's density cap: title, difficulty, acRate, and at most 3 tags.
+ * Nothing else — another row here turns the card into a dashboard.
  */
 export function ProblemHeader({ item }: { readonly item: ContentItem }) {
   const acRate = item.metadata.acRate;

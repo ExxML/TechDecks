@@ -1,27 +1,12 @@
 /**
- * Shared LeetCode fetch module.
+ * Shared LeetCode fetch module — the only place LeetCode is talked to. Both the
+ * local bulk load and the scheduled delta sync import this; do not fork it.
  *
- * The ONLY place LeetCode is talked to. Both entry points import this:
- *   - scripts/seed.ts            (Step A, local bulk load)
- *   - .github/workflows/sync.yml (Step B, monthly deltas)
- *
- * Do not fork this logic.
- *
- * ---------------------------------------------------------------------------
- * Reality note — differs from PROJECT_PLAN.md "Step 0 — CSRF spike":
- *
- * The plan says to GET https://leetcode.com/problems/<slug>/ and read
- * `csrftoken` from Set-Cookie. That page is behind a Cloudflare interstitial
- * and returns 403 "Just a moment..." for every header combination tested
- * (bare, UA-only, and a full browser header set). /graphql is NOT behind the
- * interstitial and issues a `csrftoken` cookie itself, so the token is
- * harvested from there instead.
- *
- * Measured 2026-08-09: the token is not actually enforced on read queries —
- * questionData returns 200 with a complete payload when sent with no CSRF
- * headers at all. It is still sent here because it costs one request per
- * session, and because LeetCode could begin enforcing it at any time.
- * ---------------------------------------------------------------------------
+ * The `csrftoken` is harvested from /graphql rather than from a problem page:
+ * leetcode.com HTML sits behind a Cloudflare interstitial that returns 403 for
+ * every header combination, while /graphql is reachable and sets the cookie
+ * itself. Read queries do not currently enforce the token, but it is sent
+ * anyway since it costs one request per session.
  */
 
 import { createHash } from 'node:crypto';
@@ -33,10 +18,10 @@ const USER_AGENT =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
   '(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
 
-/** Plan mandates 1 req/sec. Every outbound call goes through throttle(). */
+/** 1 req/sec. Every outbound call goes through throttle(). */
 export const THROTTLE_MS = 1000;
 
-/** Refresh the harvested token roughly this often, per the plan. */
+/** Refresh the harvested token roughly this often. */
 const TOKEN_REFRESH_EVERY = 50;
 
 // ===========================================================================
@@ -179,11 +164,8 @@ export class LeetCodeClient {
   }
 
   /**
-   * Harvest a csrftoken from /graphql itself.
-   *
-   * See the module header: the plan's HTML-page harvest is Cloudflare-blocked.
-   * A bare GET to /graphql returns 400 "Must provide query string" — which is
-   * fine, we only want the Set-Cookie header off it.
+   * Harvest a csrftoken from /graphql. A bare GET returns 400 "Must provide
+   * query string", which is fine — only the Set-Cookie header is wanted.
    */
   private async refreshToken(): Promise<void> {
     await throttle();
@@ -361,9 +343,8 @@ export class LeetCodeClient {
 }
 
 // ===========================================================================
-// Hashing — two hashes, one shared implementation
-//
-// Step A and Step B MUST both use these. See the plan's "Two hashes, not one".
+// Hashing — two hashes, one shared implementation used by every sync entry
+// point, so a value written by one is comparable by the other.
 // ===========================================================================
 
 function sha256(input: string): string {
@@ -377,8 +358,8 @@ function sha256(input: string): string {
  * drifts continuously, and including it would mark every problem changed on
  * every run, instantly blowing the detail-fetch cap.
  *
- * Computed from a listing row, which is all Step B has — Step B never sees a
- * body, which is exactly why content_hash cannot drive detection.
+ * Computed from a listing row, which is all a delta run has — it never sees a
+ * body, which is why content_hash cannot drive detection.
  */
 export function computeListHash(item: {
   title?: string | null;
@@ -404,9 +385,8 @@ export function computeListHash(item: {
 /**
  * Hash over the sanitized body HTML.
  *
- * Used at WRITE time to skip a no-op UPDATE. Not used for detection — the
- * listing endpoint returns no bodies, so a Step B job could never compute a
- * comparable value.
+ * Used at write time to skip a no-op UPDATE, not for detection: the listing
+ * endpoint returns no bodies, so a delta run could never compute a match.
  */
 export function computeContentHash(sanitizedHtml: string | null): string | null {
   if (sanitizedHtml === null) return null;

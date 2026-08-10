@@ -1,13 +1,11 @@
 /**
- * P0 gate — LeetCode CSRF spike.
+ * LeetCode fetch smoke test.
  *
  * Fetches the single slug `two-sum` end to end and confirms that `content`,
  * `hints`, `exampleTestcases`, and `codeSnippets` all come back non-null.
  *
- * This is deliberately standalone and dependency-free: it runs BEFORE
- * scripts/lib/leetcode.ts exists, so a failure here is isolated to the fetch
- * path itself rather than to shared module code. If this fails, stop — do not
- * build the bulk loader on top of a broken fetch path.
+ * Standalone and dependency-free on purpose, so a failure here points at the
+ * fetch path itself rather than at shared module code.
  *
  *   npx tsx scripts/spike-csrf.ts
  */
@@ -54,15 +52,9 @@ async function main(): Promise<void> {
 
   // ---- Step 1: obtain a csrftoken -----------------------------------------
   //
-  // DEVIATION FROM PLAN. The plan's Step 1 is `GET /problems/<slug>/` and read
-  // `csrftoken` from Set-Cookie. That page is behind a Cloudflare interstitial
-  // and returns 403 "Just a moment..." for every header combination tried
-  // (bare, UA-only, and a full browser header set) — see scripts/spike-probe.ts.
-  //
-  // `/graphql` is NOT behind the interstitial, and it issues a `csrftoken`
-  // cookie itself. So the token is harvested from a cheap GET against the
-  // GraphQL endpoint instead of from the HTML page. Same token, same cookie
-  // name, no HTML fetch involved.
+  // Harvested from a cheap GET against /graphql rather than from a problem
+  // page: leetcode.com HTML sits behind a Cloudflare interstitial that 403s,
+  // while /graphql issues the same cookie itself.
   const tokenUrl = 'https://leetcode.com/graphql';
   console.log(`[1/3] GET ${tokenUrl}  (csrftoken harvest; page HTML is CF-blocked)`);
   const tokenRes = await fetch(tokenUrl, {
@@ -81,7 +73,7 @@ async function main(): Promise<void> {
   console.log(`      csrftoken: ${csrf ? `present (len ${csrf.length})` : 'MISSING'}`);
   if (!csrf) {
     throw new Error(
-      'no csrftoken in Set-Cookie — the CSRF flow described in the plan does not apply as written',
+      'no csrftoken in Set-Cookie',
     );
   }
 

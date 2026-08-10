@@ -12,7 +12,10 @@
     "typecheck": "tsc --noEmit",
     "verify:seed": "tsx scripts/verify-seed.ts",
     "verify:rls": "tsx scripts/rls-audit.ts",
-    "verify:sanitize": "tsx scripts/verify-sanitize.ts"
+    "verify:sanitize": "tsx scripts/verify-sanitize.ts",
+    "verify:gemini": "tsx scripts/verify-gemini-logic.ts",
+    "verify:mcq": "tsx scripts/verify-mcq-store.mts",
+    "check:key": "tsx scripts/check-key.mts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.4",

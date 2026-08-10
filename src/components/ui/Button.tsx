@@ -7,12 +7,7 @@ type Props = ButtonHTMLAttributes<HTMLButtonElement> & {
   readonly children: ReactNode;
 };
 
-/**
- * Hand-built. No component library: shadcn/Radix defaults (rounded-lg, drop
- * shadows, indigo accent) are precisely the aesthetic to avoid.
- *
- * 4px radius, 1px borders, no shadow, orange reserved for the primary CTA.
- */
+/** 4px radius, 1px borders, no shadow. Orange is reserved for the primary CTA. */
 const VARIANTS: Record<Variant, string> = {
   primary:
     'bg-[var(--color-accent)] text-[#1a1a1a] font-medium ' +

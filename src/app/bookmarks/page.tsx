@@ -1,5 +1,5 @@
 import { Placeholder } from '@/components/Placeholder';
 
 export default function BookmarksPage() {
-  return <Placeholder title="Bookmarks" phase="P4" />;
+  return <Placeholder title="Bookmarks" />;
 }

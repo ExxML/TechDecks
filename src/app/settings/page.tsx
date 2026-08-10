@@ -1,5 +1,7 @@
-import { Placeholder } from '@/components/Placeholder';
+import { SettingsView } from '@/components/SettingsView';
+
+export const metadata = { title: 'Settings — TechDeck' };
 
 export default function SettingsPage() {
-  return <Placeholder title="Settings" phase="P2" />;
+  return <SettingsView />;
 }

@@ -3,9 +3,8 @@
 /* ==========================================================================
    Design tokens — LeetCode's actual values.
 
-   Dark is the primary theme. Light exists as tokens only until P7; there is
-   no ThemeToggle before then, because shipping a toggle that does nothing is
-   worse than shipping no toggle.
+   Dark is the primary theme. The light tokens are defined but not yet applied;
+   there is no theme toggle until they are.
    ========================================================================== */
 
 @theme {
@@ -23,7 +22,7 @@
   --color-correct: #00b8a3;
   --color-incorrect: #ff375f;
 
-  /* light — tokens defined now, applied at P7 */
+  /* light */
   --color-bg-light: #ffffff;
   --color-surface-light: #f7f8fa;
   --color-border-light: #e0e0e0;

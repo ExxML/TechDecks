@@ -5,7 +5,10 @@ import type {
   FeedCursor,
   FeedPage,
   LeetCodeMetadata,
+  SearchFilters,
+  SearchPage,
   Tag,
+  TagCount,
 } from './types';
 
 export const FEED_PAGE_SIZE = 10;
@@ -163,6 +166,94 @@ export async function fetchFeedAnchoredAt(
   }
   const rest = await fetchFeedPage(db, { sortKey: anchor.sort_key, id: anchor.id }, limit - 1);
   return { items: [anchor, ...rest.items], nextCursor: rest.nextCursor };
+}
+
+/* ------------------------------------------------------------------ *
+ * Search
+ * ------------------------------------------------------------------ */
+
+export const SEARCH_PAGE_SIZE = 30;
+
+/** The row shape `search_content_items` returns. */
+type SearchRow = {
+  id: string;
+  slug: string;
+  title: string;
+  difficulty: string | null;
+  metadata: unknown;
+  sort_key: number | null;
+  source_id: string;
+  visibility: string;
+  owner_id: string | null;
+  body_format: string;
+  rank: number;
+  total_count: number;
+};
+
+/**
+ * Ranked search with filters.
+ *
+ * The RPC is `security invoker`, so RLS decides the result set: an anonymous
+ * caller sees the public catalog, a signed-in one additionally sees their own
+ * authored problems. This function passes no user id for that reason — sending
+ * one would imply the server was doing the filtering, and it is not.
+ *
+ * Empty filter arrays are sent as null rather than `[]`: the SQL treats null as
+ * "no filter", and an empty array would otherwise have to mean the same thing
+ * in two places.
+ */
+export async function searchContentItems(
+  db: SupabaseClient,
+  filters: SearchFilters,
+  limit = SEARCH_PAGE_SIZE,
+  offset = 0,
+): Promise<SearchPage> {
+  const { data, error } = await db.rpc('search_content_items', {
+    p_query: filters.q.trim() || null,
+    p_difficulties: filters.difficulties.length > 0 ? [...filters.difficulties] : null,
+    p_tag_slugs: filters.tags.length > 0 ? [...filters.tags] : null,
+    p_ac_min: filters.acMin,
+    p_ac_max: filters.acMax,
+    p_bookmarked: filters.bookmarkedOnly,
+    p_limit: limit,
+    p_offset: offset,
+  });
+
+  if (error) throw new Error(`search failed: ${error.message}`);
+
+  const rows = (data ?? []) as SearchRow[];
+  return {
+    hits: rows.map((r) => ({
+      id: r.id,
+      slug: r.slug,
+      title: r.title,
+      difficulty:
+        r.difficulty === 'easy' || r.difficulty === 'medium' || r.difficulty === 'hard'
+          ? r.difficulty
+          : null,
+      metadata:
+        typeof r.metadata === 'object' && r.metadata !== null
+          ? (r.metadata as LeetCodeMetadata)
+          : {},
+      sort_key: r.sort_key,
+      source_id: r.source_id,
+      visibility: r.visibility === 'private' ? 'private' : 'public',
+      body_format: r.body_format === 'markdown' ? 'markdown' : 'html',
+    })),
+    // count(*) over () repeats the same total on every row, so any row will do.
+    total: rows.length > 0 ? Number(rows[0].total_count) : 0,
+  };
+}
+
+/** Tags that actually have matchable problems, most-used first. */
+export async function fetchTagCounts(db: SupabaseClient): Promise<readonly TagCount[]> {
+  const { data, error } = await db.rpc('list_tags_with_counts');
+  if (error) throw new Error(`tag list failed: ${error.message}`);
+  return ((data ?? []) as Array<{ slug: string; name: string; item_count: number }>).map((t) => ({
+    slug: t.slug,
+    name: t.name,
+    count: Number(t.item_count),
+  }));
 }
 
 /* ------------------------------------------------------------------ *
@@ -330,26 +421,23 @@ export type AuthoredProblemInput = {
   readonly kinds: readonly string[];
 };
 
-/**
- * Metadata written for `source_id = 'user'`.
- *
- * `topic_text` is denormalized here for the generated `search_vector`, and is
- * derived from the SAME tag list that the join rows are written from — a single
- * shared code path, because writing the two from different places is exactly
- * how the seed drifted 734 rows.
- */
+/** Metadata written for `source_id = 'user'`. */
 function authoredMetadata(input: AuthoredProblemInput): Record<string, unknown> {
   return {
     kinds: input.kinds,
     language: input.language,
-    // Derived through tagSlugs(), the SAME function writeAuthoredTags() uses to
-    // pick join rows. Deriving the two independently is what let the seed's
-    // topic_text drift from its tag joins across 734 rows.
+    // Denormalized for the generated search_vector.
     topic_text: tagSlugs(input.tags).join(' '),
   };
 }
 
-/** Author-supplied tag names to the slugs the tags table is keyed by. */
+/**
+ * Author-supplied tag names to the slugs the tags table is keyed by.
+ *
+ * Both `metadata.topic_text` and the `content_item_tags` joins are derived
+ * through here, so the two can never disagree. Deriving them separately is how
+ * the seed drifted 734 rows.
+ */
 function tagSlugs(tagNames: readonly string[]): string[] {
   return tagNames.map((t) => slugifyTitle(t)).filter(Boolean);
 }
@@ -357,14 +445,10 @@ function tagSlugs(tagNames: readonly string[]): string[] {
 /**
  * Writes the tag joins for one item, through `set_content_item_tags`.
  *
- * `content_item_tags` has insert/update/delete revoked from `authenticated` —
- * that table is the whole tag graph, and the revoke is deliberate defense in
- * depth. The RPC is the narrow exception: it verifies the caller owns the item
- * and that it is source_id = 'user', so public rows stay unreachable, and it
- * only attaches tags that already exist.
- *
- * Shared by create and update so `metadata.topic_text` and `content_item_tags`
- * can never disagree — the drift the seed hit when one branch returned early.
+ * `content_item_tags` has insert/update/delete revoked from `authenticated`,
+ * that table being the whole tag graph. The RPC is the narrow exception: it
+ * verifies the caller owns the item and that it is source_id = 'user', so
+ * public rows stay unreachable, and it only attaches tags that already exist.
  */
 async function writeAuthoredTags(
   db: SupabaseClient,

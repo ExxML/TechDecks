@@ -67,3 +67,66 @@ export type FeedPage = {
   readonly items: readonly ContentItem[];
   readonly nextCursor: FeedCursor | null;
 };
+
+/**
+ * Search filters. Every field is optional; all of them combine with AND, and
+ * multiple tags narrow rather than widen.
+ */
+export type SearchFilters = {
+  readonly q: string;
+  readonly difficulties: readonly Difficulty[];
+  readonly tags: readonly string[];
+  readonly acMin: number | null;
+  readonly acMax: number | null;
+  readonly bookmarkedOnly: boolean;
+};
+
+export const EMPTY_FILTERS: SearchFilters = {
+  q: '',
+  difficulties: [],
+  tags: [],
+  acMin: null,
+  acMax: null,
+  bookmarkedOnly: false,
+};
+
+/** True when a filter set would return the whole catalog unchanged. */
+export function filtersAreEmpty(f: SearchFilters): boolean {
+  return (
+    f.q.trim() === '' &&
+    f.difficulties.length === 0 &&
+    f.tags.length === 0 &&
+    f.acMin === null &&
+    f.acMax === null &&
+    !f.bookmarkedOnly
+  );
+}
+
+/**
+ * A search hit. Deliberately NOT a ContentItem: the search RPC does not join
+ * tags or return a body, and widening it to ContentItem would invite a caller
+ * to render `tags` as an empty list rather than as "not loaded".
+ */
+export type SearchHit = {
+  readonly id: string;
+  readonly slug: string;
+  readonly title: string;
+  readonly difficulty: Difficulty | null;
+  readonly metadata: LeetCodeMetadata;
+  readonly sort_key: number | null;
+  readonly source_id: string;
+  readonly visibility: 'public' | 'private';
+  readonly body_format: 'html' | 'markdown';
+};
+
+export type SearchPage = {
+  readonly hits: readonly SearchHit[];
+  /** Total matches before limit/offset, for "N results". */
+  readonly total: number;
+};
+
+export type TagCount = {
+  readonly slug: string;
+  readonly name: string;
+  readonly count: number;
+};

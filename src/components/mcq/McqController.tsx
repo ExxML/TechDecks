@@ -45,7 +45,6 @@ export function McqController({ item, onEnterQuestions, inQuestions, onNoSet }: 
   const { user } = useUser();
   const store = useMemo(() => getMcqStore(user?.id ?? null), [user?.id]);
   // Preset four for synced problems, the author's 1–8 for authored ones.
-  // Nothing downstream may assume a count.
   const { kinds, grounded } = useMemo(() => kindsForItem(item), [item]);
   const apiKey = useSettings((s) => s.apiKey);
   // A signed-in user's key may live in Vault, where the browser cannot read it.
@@ -102,9 +101,8 @@ export function McqController({ item, onEnterQuestions, inQuestions, onNoSet }: 
         // Null when the key lives in Vault: the route resolves it server-side.
         apiKey,
         model,
-        // Authored problems have no codeSnippets, so the options sheet offers no
-        // language; theirs comes from the problem itself. Null means the prompt
-        // omits the language slot entirely rather than asserting one.
+        // Authored problems get no language from the options sheet, so theirs
+        // comes from the problem. Null omits the prompt's language slot.
         language: language ?? authoredLanguage(item),
         kinds,
         store,

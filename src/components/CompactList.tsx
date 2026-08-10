@@ -2,13 +2,29 @@
 
 import Link from 'next/link';
 import { DifficultyBadge } from './ui/Badge';
-import type { ContentItem } from '@/lib/types';
+import type { Difficulty, LeetCodeMetadata } from '@/lib/types';
+
+/**
+ * The minimum a row needs, satisfied by both `ContentItem` and `SearchHit`.
+ * The search RPC returns no tags and no body, so requiring ContentItem here
+ * would force those callers to invent empty values.
+ */
+export type CompactListItem = {
+  readonly id: string;
+  readonly slug: string;
+  readonly title: string;
+  readonly difficulty: Difficulty | null;
+  readonly metadata: LeetCodeMetadata;
+  readonly sort_key: number | null;
+};
 
 type Props = {
-  readonly items: readonly ContentItem[];
+  readonly items: readonly CompactListItem[];
   readonly emptyMessage: string;
   /** Optional action rendered at the right of each row. */
-  readonly renderAction?: (item: ContentItem) => React.ReactNode;
+  readonly renderAction?: (item: CompactListItem) => React.ReactNode;
+  /** False when the parent owns the scroll container, as /search does. */
+  readonly scrollable?: boolean;
 };
 
 /**
@@ -17,8 +33,11 @@ type Props = {
  * A 100dvh snap feed is a poor way to read a result list, so `/bookmarks` and
  * `/search` share this layout instead of reusing ProblemFeed.
  */
-export function CompactList({ items, emptyMessage, renderAction }: Props) {
+export function CompactList({ items, emptyMessage, renderAction, scrollable = true }: Props) {
   if (items.length === 0) {
+    // An empty message is only meaningful when this component owns the viewport;
+    // /search renders its own richer empty state with a Clear action.
+    if (!emptyMessage) return null;
     return (
       <div className="flex h-[calc(100dvh-48px)] items-center justify-center px-6">
         <p className="text-center text-[14px] text-[var(--color-text-muted)]">{emptyMessage}</p>
@@ -27,7 +46,7 @@ export function CompactList({ items, emptyMessage, renderAction }: Props) {
   }
 
   return (
-    <ul className="h-[calc(100dvh-48px)] overflow-y-auto">
+    <ul className={scrollable ? 'h-[calc(100dvh-48px)] overflow-y-auto' : undefined}>
       {items.map((item) => (
         <li key={item.id} className="border-b border-[var(--color-border)]">
           <div className="flex h-[56px] items-center gap-3 px-4">

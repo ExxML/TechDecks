@@ -1,20 +1,18 @@
 /**
- * A small markdown subset renderer for authored problem bodies.
+ * A markdown subset renderer for authored problem bodies.
  *
- * Hand-built rather than a dependency, for the same reason the UI primitives
- * are: the supported surface is small and fully specified here, and its output
- * goes through the SAME DOMPurify pass as scraped LeetCode HTML. It is not a
- * CommonMark implementation and does not try to be — anything it does not
- * recognise renders as literal text rather than being silently dropped.
+ * Hand-built for the same reason the UI primitives are: the supported surface
+ * is small and fully specified here. Not a CommonMark implementation —
+ * anything unrecognised renders as literal text rather than being dropped.
  *
- * Supported: ATX headings, fenced and indented-free code blocks, unordered and
- * ordered lists, blockquotes, horizontal rules, paragraphs, and the inline set
- * (code spans, bold, italic, links).
+ * Supported: ATX headings, fenced code blocks, unordered and ordered lists,
+ * blockquotes, horizontal rules, paragraphs, and the inline set (code spans,
+ * bold, italic, links).
  *
  * SECURITY: every text run is HTML-escaped BEFORE any markup is emitted, so a
  * body containing `<script>` becomes visible text, never an element. Link
- * targets are additionally scheme-checked here; `sanitizeProblemHtml` is the
- * second, authoritative pass.
+ * targets are scheme-checked here too, but `sanitizeProblemHtml` is the
+ * authoritative pass and output must still go through it.
  */
 
 function escapeHtml(text: string): string {
@@ -38,17 +36,16 @@ function safeHref(href: string): string | null {
 }
 
 /**
- * Inline markup, applied to already-escaped text.
- *
- * Code spans are extracted first and restored last, so `**` inside a code span
- * is never treated as emphasis.
- *
- * The placeholder is delimited by NUL, which cannot appear in the input:
- * `markdownToHtml` strips control characters before calling this. A plain-text
- * sentinel such as "CODE0" would collide with a body containing that literal.
+ * Delimits extracted code spans. NUL cannot appear in the input
+ * — markdownToHtml strips control characters — so unlike a plain-text
+ * sentinel it cannot collide with a body that contains the same characters.
  */
 const CODE_SENTINEL = '\u0000';
 
+/**
+ * Inline markup, applied to already-escaped text. Code spans are extracted
+ * first and restored last, so `**` inside one is never read as emphasis.
+ */
 function renderInline(escaped: string): string {
   const codeSpans: string[] = [];
   let out = escaped.replace(/`([^`]+)`/g, (_m, code: string) => {
@@ -86,9 +83,7 @@ type ListState = { readonly tag: 'ul' | 'ol' } | null;
 export function markdownToHtml(src: string): string {
   const lines = src
     .replace(/\r\n?/g, '\n')
-    // Strip control characters, tab excepted. This is what makes CODE_SENTINEL
-    // safe: NUL cannot survive into renderInline's input, so it can never be
-    // confused for a placeholder the author typed.
+    // Control characters, tab excepted. This is what keeps CODE_SENTINEL safe.
     .replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, '')
     .split('\n');
   const out: string[] = [];

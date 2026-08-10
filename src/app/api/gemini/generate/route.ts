@@ -87,20 +87,17 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Problem not found' }, { status: 404 });
   }
 
-  // The kind list is derived from the STORED item, not from the request body.
-  // A synced problem always generates the preset four — "the user does not
-  // choose" is a product rule, and a rule the client can override is not one.
-  // An authored problem's kinds come from its own row, so a caller cannot
-  // generate someone else's shape either. The client still sends `kinds`; it is
-  // validated by RequestedKindsSchema and then ignored in favour of this.
+  // Derived from the STORED item, never from the request body: a synced problem
+  // always generates the preset four, and "the user does not choose" is not a
+  // rule if the client can override it. The request's `kinds` is validated by
+  // RequestedKindsSchema and then ignored in favour of this.
   const { kinds } = kindsForItem(item);
 
+  // Authored problems carry no codeSnippets, so `chosen` is undefined and the
+  // prompt's signature slot is omitted rather than sent empty.
   const snippets = item.metadata.codeSnippets ?? [];
   const chosen = language ? snippets.find((s) => s.langSlug === language) : undefined;
 
-  // Authored problems store markdown and carry no codeSnippets, so there is no
-  // signature to pin against and the language slot is filled only if the author
-  // set one. This is the bottom of the grounding ladder.
   const bodyText =
     item.body_format === 'markdown' ? (item.body_html ?? '') : htmlToText(item.body_html);
 

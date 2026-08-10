@@ -16,9 +16,8 @@ import type { ContentItem } from '@/lib/types';
  */
 export function BookmarksView() {
   const { user, loading: authLoading } = useUser();
-  // null = not loaded yet. Derived from the fetch alone, so the signed-out case
-  // needs no state write — computing it during render instead of syncing it in
-  // an effect is what keeps this off the cascading-render path.
+  // null = not loaded yet, so the signed-out case needs no state write and
+  // `loading` can be computed during render rather than synced in an effect.
   const [items, setItems] = useState<readonly ContentItem[] | null>(null);
 
   useEffect(() => {

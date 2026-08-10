@@ -7,30 +7,23 @@
 -- Apply AFTER 0001_init.sql.
 -- =========================================================================
 --
--- WHY THIS EXISTS
---
 -- 0001 revokes insert/update/delete on content_item_tags from anon and
--- authenticated as defense in depth: that table is the tag graph, and a future
--- accidental `disable row level security` must not immediately make it
--- world-writable. Authored problems need tags, so those two requirements
--- collide. Widening the grant would undo the hardening for every row in the
--- table just to permit writes to a handful.
+-- authenticated, so an accidental `disable row level security` cannot make the
+-- tag graph world-writable. Authored problems still need tags, and widening
+-- that grant would undo the hardening for the whole table to permit writes to a
+-- handful of rows. The grant therefore stays revoked and this function is the
+-- only exception, narrow in the ways that matter:
 --
--- So the grant stays revoked and this function is the only hole — narrow, and
--- narrow in the ways that matter:
+--   * It verifies the caller OWNS the item and that it is source_id = 'user',
+--     so public LeetCode rows are unreachable through it.
+--   * It attaches only tags that already exist, so it cannot fill `tags` with
+--     junk.
+--   * It rewrites the join rows of one item and touches nothing else.
 --
---   * It verifies the caller OWNS the target item and that the item is
---     source_id = 'user'. Public LeetCode rows are unreachable through it, so
---     the synced tag graph cannot be edited by anyone holding the anon key.
---   * It attaches only tags that ALREADY EXIST. It never creates a tag, so it
---     cannot be used to fill the tags table with junk.
---   * It is not `for all`: it rewrites the join rows of one item and touches
---     nothing else.
---
--- `security definer` is required — the point is to act with rights the caller
--- does not have — so `search_path` is pinned, and the ownership check is the
--- thing standing in for RLS. Without that check the parameter would BE the
--- vulnerability, exactly as it would be on the Vault read wrapper.
+-- `security definer` is required to act with rights the caller lacks, so
+-- `search_path` is pinned and the ownership check stands in for RLS. Without
+-- that check `p_item` would BE the vulnerability, as it would on the Vault
+-- read wrapper.
 
 create or replace function public.set_content_item_tags(p_item uuid, p_tag_slugs text[])
 returns void language plpgsql security definer

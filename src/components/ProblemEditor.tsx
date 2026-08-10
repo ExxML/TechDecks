@@ -30,11 +30,9 @@ function initialLanguage(item: ContentItem | undefined): string {
 }
 
 /**
- * Create/edit form for an authored problem.
- *
- * The body is markdown, rendered by `markdownToHtml` and then sanitized —
- * authored HTML is no more trusted than scraped HTML, since a shared account or
- * a future export path would carry it.
+ * Create/edit form for an authored problem. The body is markdown, rendered by
+ * `markdownToHtml` and then sanitized — authored content is no more trusted
+ * than scraped content.
  */
 export function ProblemEditor({ initial, onSave, onCancel }: Props) {
   const [title, setTitle] = useState(initial?.title ?? '');

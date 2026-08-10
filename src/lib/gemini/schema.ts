@@ -25,14 +25,13 @@ export const KIND_LABELS: Readonly<Record<string, string>> = {
 /**
  * The kinds a problem generates, and whether that generation is grounded.
  *
- * Synced problems always use the preset four in fixed order — the user does not
- * choose. Authored problems use the 1–8 kinds their author defined, and carry
- * no `codeSnippets`, so generation runs at the BOTTOM of the grounding ladder
- * (content_references → hints/codeSnippets/tags → the model's own knowledge).
- * Sets produced ungrounded must say so.
+ * Synced problems always use the preset four in fixed order; the user does not
+ * choose. Authored problems use the 1–8 kinds their author defined and carry no
+ * `codeSnippets`, so they sit at the bottom of the grounding ladder and their
+ * sets must be badged accordingly.
  *
- * Both callers — the generate route and the card's controller — read this, so
- * the kind list and the grounded flag can never disagree between them.
+ * Read by both the generate route and the card controller, so the kind list and
+ * the grounded flag cannot disagree between them.
  */
 export function kindsForItem(item: {
   readonly source_id: string;

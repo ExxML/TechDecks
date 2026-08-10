@@ -18,7 +18,8 @@
     "check:key": "tsx scripts/check-key.mts",
     "verify:auth": "tsx scripts/verify-auth.mts",
     "verify:migration": "tsx scripts/verify-migration.mts",
-    "verify:authored": "tsx scripts/verify-authored.mts"
+    "verify:authored": "tsx scripts/verify-authored.mts",
+    "verify:search": "tsx scripts/verify-search.mts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.4",

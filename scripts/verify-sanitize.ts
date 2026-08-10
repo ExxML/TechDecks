@@ -12,7 +12,7 @@
  * the browser — is checked against the running app instead.
  */
 
-import { sanitizeProblemHtml } from '../src/lib/sanitize';
+import { sanitizeProblemHtml } from '../src/lib/sanitizeNode';
 
 type Case = {
   name: string;

@@ -26,7 +26,7 @@ import {
   type LcListItem,
   type NormalizedTag,
 } from './leetcode';
-import { sanitizeProblemHtml } from '../../src/lib/sanitize';
+import { sanitizeProblemHtml } from '../../src/lib/sanitizeNode';
 
 export const SOURCE_ID = 'leetcode';
 
@@ -143,11 +143,10 @@ async function ensureTagIds(db: SupabaseClient, tags: NormalizedTag[]): Promise<
 /**
  * Write the content_item_tags join rows for one item.
  *
- * EVERY branch that writes metadata.topic_text must also call this. The two are
- * views of the same normalizeTags() output, and if one is written without the
- * other, topic search silently returns nothing — a failure with no error
- * message. This has already happened once: the paid-only branch wrote
- * topic_text and returned before the join write, drifting 734 rows.
+ * EVERY branch that writes metadata.topic_text must also call this — including
+ * the paid-only branch, which returns early. The two are views of the same
+ * normalizeTags() output, and if one is written without the other, topic search
+ * silently returns nothing, with no error to notice.
  */
 export async function writeTagJoins(
   db: SupabaseClient,

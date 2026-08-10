@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { fetchItemById } from '@/lib/queries';
-import { sanitizeProblemHtml } from '@/lib/sanitize';
 import {
   GenerateRequestSchema,
   buildResponseSchema,
@@ -25,12 +24,17 @@ export const maxDuration = 300;
 
 const ROUTE_BUDGET_MS = 280_000; // leave headroom under maxDuration
 
-/** Strip tags for the prompt — the model does not need markup, and HTML wastes
- *  tokens. Sanitize first: this is untrusted scraped content. */
+/**
+ * Strip tags for the prompt — the model does not need markup, and HTML wastes
+ * tokens.
+ *
+ * No sanitizer pass: this output is prompt text that never reaches a DOM, and
+ * stripping every tag is stronger than sanitizing first. Rendered HTML is
+ * sanitized in ProblemBody instead.
+ */
 function htmlToText(html: string | null): string {
   if (!html) return '';
-  const clean = sanitizeProblemHtml(html) ?? '';
-  return clean
+  return html
     .replace(/<\/(p|div|li|pre|tr|h[1-6])>/gi, '\n')
     .replace(/<br\s*\/?>/gi, '\n')
     .replace(/<[^>]+>/g, '')

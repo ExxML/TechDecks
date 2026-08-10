@@ -14,7 +14,7 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { config } from 'dotenv';
 import { markdownToHtml } from '../src/lib/markdown';
-import { sanitizeProblemHtml } from '../src/lib/sanitize';
+import { sanitizeProblemHtml } from '../src/lib/sanitizeNode';
 import { kindsForItem } from '../src/lib/gemini/schema';
 import {
   createAuthoredProblem,

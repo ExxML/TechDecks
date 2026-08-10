@@ -5,6 +5,7 @@ import { sanitizeProblemHtml } from '@/lib/sanitize';
 import {
   GenerateRequestSchema,
   buildResponseSchema,
+  kindsForItem,
   mcqSetSchema,
 } from '@/lib/gemini/schema';
 import { SYSTEM_INSTRUCTION, buildPrompt, PROMPT_VERSION } from '@/lib/gemini/prompt';
@@ -76,7 +77,7 @@ export async function POST(request: Request) {
   if (!parsed.success) {
     return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
   }
-  const { contentItemId, model, language, kinds } = parsed.data;
+  const { contentItemId, model, language } = parsed.data;
 
   // Read the problem with the caller's own RLS-scoped session, so this route
   // cannot be used to read a private problem the caller may not see.
@@ -86,14 +87,28 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Problem not found' }, { status: 404 });
   }
 
+  // The kind list is derived from the STORED item, not from the request body.
+  // A synced problem always generates the preset four — "the user does not
+  // choose" is a product rule, and a rule the client can override is not one.
+  // An authored problem's kinds come from its own row, so a caller cannot
+  // generate someone else's shape either. The client still sends `kinds`; it is
+  // validated by RequestedKindsSchema and then ignored in favour of this.
+  const { kinds } = kindsForItem(item);
+
   const snippets = item.metadata.codeSnippets ?? [];
   const chosen = language ? snippets.find((s) => s.langSlug === language) : undefined;
+
+  // Authored problems store markdown and carry no codeSnippets, so there is no
+  // signature to pin against and the language slot is filled only if the author
+  // set one. This is the bottom of the grounding ladder.
+  const bodyText =
+    item.body_format === 'markdown' ? (item.body_html ?? '') : htmlToText(item.body_html);
 
   const prompt = buildPrompt({
     title: item.title,
     difficulty: item.difficulty,
     tags: item.tags.map((t) => t.name),
-    bodyText: htmlToText(item.body_html),
+    bodyText,
     kinds,
     language: chosen?.lang ?? language,
     signature: chosen?.code ?? null,

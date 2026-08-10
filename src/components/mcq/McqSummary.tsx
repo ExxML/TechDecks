@@ -1,14 +1,16 @@
 import { Button } from '../ui/Button';
+import { Badge } from '../ui/Badge';
 import type { McqSet } from '@/lib/mcq/store';
 
 type Props = {
   readonly set: McqSet;
+  readonly grounded: boolean;
   readonly onRetry: () => void;
   readonly onRegenerate: () => void;
 };
 
 /** Final panel appended to the strip: score, per-kind breakdown, actions. */
-export function McqSummary({ set, onRetry, onRegenerate }: Props) {
+export function McqSummary({ set, grounded, onRetry, onRegenerate }: Props) {
   const total = set.questions.length;
   const answered = set.answers.filter((a): a is NonNullable<typeof a> => a !== null);
   const score = answered.filter((a) => a.correct).length;
@@ -26,6 +28,14 @@ export function McqSummary({ set, onRetry, onRegenerate }: Props) {
       <p className="mt-1 text-[13px] text-[var(--color-text-muted)]">
         {complete ? 'Complete' : `${answered.length} of ${total} answered`}
       </p>
+
+      {/* One muted badge, here only. Repeating it per question would turn a
+          caveat into noise and train the reader to ignore it. */}
+      {!grounded && (
+        <Badge className="mt-3 border border-[var(--color-border)] text-[var(--color-text-muted)]">
+          Ungrounded — verify independently
+        </Badge>
+      )}
 
       <ul className="mt-4 flex flex-col gap-1.5">
         {set.questions.map((q, i) => {

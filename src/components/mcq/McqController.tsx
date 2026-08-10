@@ -12,14 +12,18 @@ import { useGeneration } from '@/lib/mcq/generation';
 import { getMcqStore } from '@/lib/mcq/provider';
 import { useUser } from '@/lib/auth';
 import { useStoredKey } from '@/lib/gemini/useStoredKey';
-import { PRESET_KINDS } from '@/lib/gemini/schema';
+import { kindsForItem } from '@/lib/gemini/schema';
 import type { McqSet } from '@/lib/mcq/store';
 import type { ContentItem } from '@/lib/types';
 
-/** Synced problems always generate these, so the preview reads from the source. */
-const KINDS: readonly string[] = PRESET_KINDS;
-
 const titleCase = (k: string) => k.charAt(0).toUpperCase() + k.slice(1);
+
+/** The author's free-text language, when they set one. Synced problems have
+ *  none here — theirs come from codeSnippets via the options sheet. */
+function authoredLanguage(item: ContentItem): string | null {
+  const raw = item.metadata.language;
+  return typeof raw === 'string' && raw.trim() ? raw.trim() : null;
+}
 
 type Props = {
   readonly item: ContentItem;
@@ -40,6 +44,9 @@ type Props = {
 export function McqController({ item, onEnterQuestions, inQuestions, onNoSet }: Props) {
   const { user } = useUser();
   const store = useMemo(() => getMcqStore(user?.id ?? null), [user?.id]);
+  // Preset four for synced problems, the author's 1–8 for authored ones.
+  // Nothing downstream may assume a count.
+  const { kinds, grounded } = useMemo(() => kindsForItem(item), [item]);
   const apiKey = useSettings((s) => s.apiKey);
   // A signed-in user's key may live in Vault, where the browser cannot read it.
   // Only its EXISTENCE is visible here; the plaintext stays server-side.
@@ -95,8 +102,11 @@ export function McqController({ item, onEnterQuestions, inQuestions, onNoSet }: 
         // Null when the key lives in Vault: the route resolves it server-side.
         apiKey,
         model,
-        language,
-        kinds: KINDS,
+        // Authored problems have no codeSnippets, so the options sheet offers no
+        // language; theirs comes from the problem itself. Null means the prompt
+        // omits the language slot entirely rather than asserting one.
+        language: language ?? authoredLanguage(item),
+        kinds,
         store,
       });
       if (saved) {
@@ -104,7 +114,7 @@ export function McqController({ item, onEnterQuestions, inQuestions, onNoSet }: 
         onEnterQuestions();
       }
     },
-    [apiKey, generate, item.id, onEnterQuestions, store],
+    [apiKey, generate, item, kinds, onEnterQuestions, store],
   );
 
   // Tapping Generate with no key opens the dialog inline, then proceeds with
@@ -140,6 +150,7 @@ export function McqController({ item, onEnterQuestions, inQuestions, onNoSet }: 
     return (
       <McqStrip
         set={activeSet}
+        grounded={grounded}
         onAnswer={onAnswer}
         onRetry={onRetry}
         onRegenerate={() => setShowOptions(true)}
@@ -177,7 +188,7 @@ export function McqController({ item, onEnterQuestions, inQuestions, onNoSet }: 
             <p className="mt-1.5 text-center text-[13px] leading-none text-[var(--color-text-muted)]">
               {hydrated && !canGenerate
                 ? 'Needs a Gemini API key.'
-                : `${KINDS.length} questions · ${KINDS.map(titleCase).join(', ')}`}
+                : `${kinds.length} question${kinds.length === 1 ? '' : 's'} · ${kinds.map(titleCase).join(', ')}`}
             </p>
           )}
 

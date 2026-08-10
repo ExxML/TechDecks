@@ -1,9 +1,12 @@
 import { DifficultyBadge } from './ui/Badge';
+import { BookmarkButton } from './BookmarkButton';
 import type { ContentItem } from '@/lib/types';
 
 /**
- * The card's density cap: title, difficulty, acRate, and at most 3 tags.
- * Nothing else — another row here turns the card into a dashboard.
+ * The card's density cap: title, difficulty, acRate, bookmark, and at most 3
+ * tags. Nothing else — another row here turns the card into a dashboard.
+ *
+ * This row is also the escape-gesture zone, so it must never become a scroller.
  */
 export function ProblemHeader({ item }: { readonly item: ContentItem }) {
   const acRate = item.metadata.acRate;
@@ -11,12 +14,17 @@ export function ProblemHeader({ item }: { readonly item: ContentItem }) {
 
   return (
     <div className="px-4 pt-4 pb-3">
-      <h2 className="text-[18px] leading-tight font-medium text-[var(--color-text)]">
-        {item.sort_key !== null && (
-          <span className="text-[var(--color-text-muted)]">{item.sort_key}. </span>
-        )}
-        {item.title}
-      </h2>
+      <div className="flex items-start gap-2">
+        <h2 className="min-w-0 flex-1 text-[18px] leading-tight font-medium text-[var(--color-text)]">
+          {item.sort_key !== null && (
+            <span className="text-[var(--color-text-muted)]">{item.sort_key}. </span>
+          )}
+          {item.title}
+        </h2>
+        {/* Renders nothing when signed out — bookmarks are an authenticated
+            write, so a tappable icon there would only ever fail. */}
+        <BookmarkButton contentItemId={item.id} />
+      </div>
 
       <div className="mt-2 flex items-center gap-3">
         <DifficultyBadge difficulty={item.difficulty} />

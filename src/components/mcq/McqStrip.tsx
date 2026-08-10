@@ -8,6 +8,9 @@ import type { McqSet } from '@/lib/mcq/store';
 
 type Props = {
   readonly set: McqSet;
+  /** False when generation ran at the bottom of the grounding ladder. Surfaced
+   *  once, in the summary panel — never repeated per question. */
+  readonly grounded: boolean;
   readonly onAnswer: (index: number, selectedIndex: number) => void;
   readonly onRetry: () => void;
   readonly onRegenerate: () => void;
@@ -17,7 +20,7 @@ type Props = {
  * One panel per question plus a summary, snapping horizontally against the
  * feed's vertical snap. Panel count comes from the set; nothing assumes 4.
  */
-export function McqStrip({ set, onAnswer, onRetry, onRegenerate }: Props) {
+export function McqStrip({ set, grounded, onAnswer, onRetry, onRegenerate }: Props) {
   const stripRef = useRef<HTMLDivElement>(null);
   const [active, setActive] = useState(0);
   const panelCount = set.questions.length + 1; // + summary
@@ -63,7 +66,12 @@ export function McqStrip({ set, onAnswer, onRetry, onRegenerate }: Props) {
             onAnswer={(selected) => onAnswer(i, selected)}
           />
         ))}
-        <McqSummary set={set} onRetry={onRetry} onRegenerate={onRegenerate} />
+        <McqSummary
+          set={set}
+          grounded={grounded}
+          onRetry={onRetry}
+          onRegenerate={onRegenerate}
+        />
       </div>
 
       <McqStepper

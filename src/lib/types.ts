@@ -29,6 +29,10 @@ export type LeetCodeMetadata = {
   readonly similarQuestions?: unknown;
   readonly stats?: unknown;
   readonly list_hash?: string;
+  /** Authored problems only: the 1–8 question kinds their author defined, and
+   *  an optional free-text language. Synced rows carry neither. */
+  readonly kinds?: readonly string[];
+  readonly language?: string | null;
 };
 
 export type Tag = {

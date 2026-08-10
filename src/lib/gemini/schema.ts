@@ -22,6 +22,40 @@ export const KIND_LABELS: Readonly<Record<string, string>> = {
   solution: 'Choose the best complete final solution',
 };
 
+/**
+ * The kinds a problem generates, and whether that generation is grounded.
+ *
+ * Synced problems always use the preset four in fixed order — the user does not
+ * choose. Authored problems use the 1–8 kinds their author defined, and carry
+ * no `codeSnippets`, so generation runs at the BOTTOM of the grounding ladder
+ * (content_references → hints/codeSnippets/tags → the model's own knowledge).
+ * Sets produced ungrounded must say so.
+ *
+ * Both callers — the generate route and the card's controller — read this, so
+ * the kind list and the grounded flag can never disagree between them.
+ */
+export function kindsForItem(item: {
+  readonly source_id: string;
+  readonly metadata: { readonly kinds?: unknown; readonly codeSnippets?: unknown };
+}): { readonly kinds: readonly string[]; readonly grounded: boolean } {
+  if (item.source_id !== 'user') {
+    const snippets = item.metadata.codeSnippets;
+    return {
+      kinds: [...PRESET_KINDS],
+      grounded: Array.isArray(snippets) && snippets.length > 0,
+    };
+  }
+
+  const raw = item.metadata.kinds;
+  const kinds = Array.isArray(raw) ? raw.filter((k): k is string => typeof k === 'string') : [];
+  return {
+    // An authored problem saved before kinds existed still generates something
+    // rather than failing the request outright.
+    kinds: kinds.length > 0 ? kinds.slice(0, 8) : [...PRESET_KINDS],
+    grounded: false,
+  };
+}
+
 export const McqSchema = z.object({
   kind: z.string().min(1).max(40), // preset or author-defined
   question: z.string().min(10),

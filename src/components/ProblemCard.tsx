@@ -56,7 +56,7 @@ export function ProblemCard({ item }: { readonly item: ContentItem }) {
       ) : (
         <div className="relative min-h-0">
           <div className="no-scrollbar h-full overflow-y-auto overscroll-y-contain px-4 pb-4">
-            <ProblemBody html={item.body_html} />
+            <ProblemBody html={item.body_html} format={item.body_format} />
           </div>
           {/* Fade mask signalling more content below. */}
           <div

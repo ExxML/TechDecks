@@ -1,11 +1,13 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { Button } from './ui/Button';
 import { Select } from './ui/Select';
 import { ApiKeyDialog } from './ApiKeyDialog';
 import { AuthButton } from './AuthButton';
 import { useSettings } from '@/lib/settings';
+import { useUser } from '@/lib/auth';
 import { useModels } from '@/lib/gemini/useModels';
 import { clearStoredKey } from '@/lib/gemini/keyStorage';
 import { useStoredKey } from '@/lib/gemini/useStoredKey';
@@ -17,6 +19,8 @@ import { useStoredKey } from '@/lib/gemini/useStoredKey';
  */
 export function SettingsView() {
   const { apiKey, model, language, hydrated, hydrate, setModel, setLanguage } = useSettings();
+  const { user } = useUser();
+  const signedIn = user !== null;
   const [showKeyDialog, setShowKeyDialog] = useState(false);
   const [clearing, setClearing] = useState(false);
   // Re-checked whenever the key dialog closes.
@@ -39,6 +43,24 @@ export function SettingsView() {
         </p>
         <AuthButton />
       </section>
+
+      {/* `/my` lives here rather than as a fifth tab: the tab bar's 48px height
+          is load-bearing for every card's calc(100dvh - 48px), and a bar that
+          changes shape on sign-in would shift that math. */}
+      {signedIn && (
+        <section className="mt-6">
+          <h2 className="text-[13px] font-medium text-[var(--color-text)]">My problems</h2>
+          <p className="mt-1 mb-2 text-[13px] leading-[1.5] text-[var(--color-text-muted)]">
+            Write your own problems and generate questions against them.
+          </p>
+          <Link
+            href="/my"
+            className="inline-flex min-h-[40px] items-center justify-center gap-2 rounded-[4px] border border-[var(--color-border)] bg-[var(--color-surface-alt)] px-4 text-[14px] leading-none text-[var(--color-text)] transition-colors duration-100 hover:bg-[#383838]"
+          >
+            Open my problems
+          </Link>
+        </section>
+      )}
 
       <section className="mt-6">
         <h2 className="text-[13px] font-medium text-[var(--color-text)]">Gemini API key</h2>

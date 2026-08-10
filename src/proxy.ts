@@ -10,7 +10,7 @@ import { NextResponse, type NextRequest } from 'next/server';
  * `getAll`/`setAll` ONLY. The deprecated `get`/`set`/`remove` triple breaks
  * refresh, and @supabase/ssr will not warn about it.
  */
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });
 
   const supabase = createServerClient(

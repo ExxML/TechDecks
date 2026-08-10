@@ -30,7 +30,7 @@ export async function createClient(): Promise<SupabaseClient> {
             }
           } catch {
             // Called from a Server Component, where cookies are read-only.
-            // Middleware refreshes the session, so this is safe to ignore.
+            // The proxy refreshes the session, so this is safe to ignore.
           }
         },
       },

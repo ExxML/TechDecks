@@ -6,6 +6,8 @@ import { Input } from './ui/Input';
 import { Button } from './ui/Button';
 import { useSettings } from '@/lib/settings';
 import { normalizeApiKey, isPlausibleApiKey } from '@/lib/gemini/keys';
+import { useUser } from '@/lib/auth';
+import { storeKey } from '@/lib/gemini/keyStorage';
 
 type Props = {
   readonly open: boolean;
@@ -22,21 +24,41 @@ type Props = {
  * app's only real feature fails silently for every new visitor. No tour, no
  * modal on first load, no marketing copy.
  *
- * The sessionStorage warning is required — the key dies with the tab, and
- * without saying so users re-paste every session and conclude it is broken.
+ * Signed-in users may opt into saving the key in Supabase Vault. Persistence is
+ * OPT-IN and the checkbox label states plainly that the key is encrypted but
+ * recoverable by whoever operates this site — Vault protects against a stolen
+ * database dump, not against the operator.
  */
 export function ApiKeyDialog({ open, onClose, onSaved }: Props) {
   const apiKey = useSettings((s) => s.apiKey);
   const setApiKey = useSettings((s) => s.setApiKey);
+  const { user } = useUser();
   const [value, setValue] = useState('');
+  const [persist, setPersist] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
-  const save = () => {
+  const save = async () => {
     const trimmed = normalizeApiKey(value);
     if (!isPlausibleApiKey(trimmed)) {
       setError('That does not look like a Gemini API key.');
       return;
     }
+
+    if (user && persist) {
+      setSaving(true);
+      try {
+        await storeKey(trimmed);
+      } catch (e) {
+        setSaving(false);
+        setError(e instanceof Error ? e.message : 'Could not save your key.');
+        return;
+      }
+      setSaving(false);
+    }
+
+    // Always keep it for this tab too, so the current session works whether or
+    // not it was persisted.
     setApiKey(trimmed);
     setValue('');
     setError(null);
@@ -75,19 +97,35 @@ export function ApiKeyDialog({ open, onClose, onSaved }: Props) {
             setValue(e.target.value);
             setError(null);
           }}
-          onKeyDown={(e) => e.key === 'Enter' && save()}
+          onKeyDown={(e) => e.key === 'Enter' && void save()}
           aria-label="Gemini API key"
         />
         {error && <p className="mt-1.5 text-[12px] text-[var(--color-incorrect)]">{error}</p>}
       </div>
 
-      <p className="mt-2 text-[12px] leading-[1.45] text-[var(--color-text-muted)]">
-        Cleared when you close this tab. Sign in to save it.
-      </p>
+      {user ? (
+        <label className="mt-3 flex items-start gap-2">
+          <input
+            type="checkbox"
+            checked={persist}
+            onChange={(e) => setPersist(e.target.checked)}
+            className="mt-0.5 accent-[var(--color-accent)]"
+          />
+          <span className="text-[12px] leading-[1.45] text-[var(--color-text-muted)]">
+            Save this key to my account so I don&rsquo;t have to paste it again. It is encrypted at
+            rest, but whoever operates this site can recover it — use a dedicated key you can
+            revoke.
+          </span>
+        </label>
+      ) : (
+        <p className="mt-2 text-[12px] leading-[1.45] text-[var(--color-text-muted)]">
+          Cleared when you close this tab. Sign in to save it.
+        </p>
+      )}
 
       <div className="mt-4 flex gap-2">
-        <Button variant="primary" className="flex-1" onClick={save}>
-          Save key
+        <Button variant="primary" className="flex-1" disabled={saving} onClick={() => void save()}>
+          {saving ? 'Saving…' : 'Save key'}
         </Button>
         {apiKey && (
           <Button

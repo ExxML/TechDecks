@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { TabBar } from '@/components/TabBar';
+import { MigrationGate } from '@/components/MigrationGate';
 
 export const metadata: Metadata = {
   title: 'TechDecks',
@@ -22,6 +23,9 @@ export default function RootLayout({ children }: LayoutProps<'/'>) {
         {/* The tab bar is fixed and 48px; every scroll container is sized
             calc(100dvh - 48px) so nothing hides behind it. */}
         <main>{children}</main>
+        {/* Mounted at the root so the sign-in migration runs wherever the OAuth
+            redirect lands, not only on Settings. */}
+        <MigrationGate />
         <TabBar />
       </body>
     </html>

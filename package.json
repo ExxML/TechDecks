@@ -15,7 +15,9 @@
     "verify:sanitize": "tsx scripts/verify-sanitize.ts",
     "verify:gemini": "tsx scripts/verify-gemini-logic.ts",
     "verify:mcq": "tsx scripts/verify-mcq-store.mts",
-    "check:key": "tsx scripts/check-key.mts"
+    "check:key": "tsx scripts/check-key.mts",
+    "verify:auth": "tsx scripts/verify-auth.mts",
+    "verify:migration": "tsx scripts/verify-migration.mts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.4",
@@ -26,6 +28,7 @@
     "next": "16.3.0",
     "react": "19.2.8",
     "react-dom": "19.2.8",
+    "server-only": "^0.0.1",
     "zod": "^4.4.3",
     "zustand": "^5.0.14"
   },

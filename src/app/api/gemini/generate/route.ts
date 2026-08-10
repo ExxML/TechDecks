@@ -9,7 +9,8 @@ import {
 } from '@/lib/gemini/schema';
 import { SYSTEM_INSTRUCTION, buildPrompt, PROMPT_VERSION } from '@/lib/gemini/prompt';
 import { GeminiError, generateJson, ATTEMPT_TIMEOUT_MS } from '@/lib/gemini/client';
-import { readApiKey, sameOriginOk, rateLimitOk } from '@/lib/gemini/guard';
+import { sameOriginOk, rateLimitOk } from '@/lib/gemini/guard';
+import { resolveGeminiKey } from '@/lib/gemini/resolveKey';
 
 /**
  * Generates, validates, and returns. This route never writes to the database —
@@ -55,7 +56,9 @@ export async function POST(request: Request) {
     );
   }
 
-  const apiKey = readApiKey(request);
+  // Signed-in users' keys come from Vault, read server-side; anonymous users
+  // send one in a header. Either way the key exists only on the server.
+  const apiKey = await resolveGeminiKey(request);
   if (!apiKey) {
     return NextResponse.json({ error: 'Add your Gemini API key in Settings' }, { status: 401 });
   }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { McqStrip } from './McqStrip';
 import { GenerateOptionsSheet } from './GenerateOptionsSheet';
 import { HistoryPicker } from './HistoryPicker';
@@ -8,7 +8,10 @@ import { ApiKeyDialog } from '../ApiKeyDialog';
 import { Button } from '../ui/Button';
 import { Skeleton } from '../ui/Skeleton';
 import { useSettings } from '@/lib/settings';
-import { useGeneration, mcqStore } from '@/lib/mcq/generation';
+import { useGeneration } from '@/lib/mcq/generation';
+import { getMcqStore } from '@/lib/mcq/provider';
+import { useUser } from '@/lib/auth';
+import { useStoredKey } from '@/lib/gemini/useStoredKey';
 import { PRESET_KINDS } from '@/lib/gemini/schema';
 import type { McqSet } from '@/lib/mcq/store';
 import type { ContentItem } from '@/lib/types';
@@ -35,13 +38,19 @@ type Props = {
  * implementation changes nothing here.
  */
 export function McqController({ item, onEnterQuestions, inQuestions, onNoSet }: Props) {
+  const { user } = useUser();
+  const store = useMemo(() => getMcqStore(user?.id ?? null), [user?.id]);
   const apiKey = useSettings((s) => s.apiKey);
+  // A signed-in user's key may live in Vault, where the browser cannot read it.
+  // Only its EXISTENCE is visible here; the plaintext stays server-side.
+  const vaultKey = useStoredKey();
   const hydrated = useSettings((s) => s.hydrated);
   const hydrate = useSettings((s) => s.hydrate);
 
   const status = useGeneration((s) => s.statusByItem[item.id] ?? 'idle');
   const error = useGeneration((s) => s.errorByItem[item.id] ?? null);
   const version = useGeneration((s) => s.versionByItem[item.id] ?? 0);
+  const globalVersion = useGeneration((s) => s.globalVersion);
   const generate = useGeneration((s) => s.generate);
   const bump = useGeneration((s) => s.bump);
 
@@ -53,60 +62,72 @@ export function McqController({ item, onEnterQuestions, inQuestions, onNoSet }: 
 
   useEffect(() => hydrate(), [hydrate]);
 
-  // Re-read whenever this problem's sets change.
+  // Re-read whenever this problem's sets change, or the store swaps on sign-in.
   useEffect(() => {
     let cancelled = false;
-    void mcqStore.list(item.id).then((list) => {
-      if (cancelled) return;
-      setSets(list);
-      setActiveSetId((current) => (current && list.some((s) => s.id === current) ? current : (list[0]?.id ?? null)));
-    });
+    void store
+      .list(item.id)
+      .then((list) => {
+        if (cancelled) return;
+        setSets(list);
+        setActiveSetId((current) =>
+          current && list.some((s) => s.id === current) ? current : (list[0]?.id ?? null),
+        );
+      })
+      .catch(() => {
+        if (!cancelled) setSets([]);
+      });
     return () => {
       cancelled = true;
     };
-  }, [item.id, version]);
+  }, [item.id, version, globalVersion, store]);
+
+  // Either source counts: a pasted key for this tab, or one stored in Vault
+  // that the server will read on our behalf.
+  const canGenerate = Boolean(apiKey) || vaultKey;
 
   const activeSet = sets.find((s) => s.id === activeSetId) ?? null;
 
   const runGeneration = useCallback(
     async (model: string, language: string | null) => {
-      if (!apiKey) return;
       const saved = await generate({
         contentItemId: item.id,
+        // Null when the key lives in Vault: the route resolves it server-side.
         apiKey,
         model,
         language,
         kinds: KINDS,
+        store,
       });
       if (saved) {
         setActiveSetId(saved.id);
         onEnterQuestions();
       }
     },
-    [apiKey, generate, item.id, onEnterQuestions],
+    [apiKey, generate, item.id, onEnterQuestions, store],
   );
 
   // Tapping Generate with no key opens the dialog inline, then proceeds with
   // the generation the user originally asked for.
   const requestGenerate = () => {
-    if (!apiKey) setShowKeyDialog(true);
+    if (!canGenerate) setShowKeyDialog(true);
     else setShowOptions(true);
   };
 
   const onAnswer = async (index: number, selectedIndex: number) => {
     if (!activeSet) return;
-    await mcqStore.recordAnswer(activeSet.id, index, selectedIndex);
+    await store.recordAnswer(activeSet.id, index, selectedIndex);
     bump(item.id);
   };
 
   const onRetry = async () => {
     if (!activeSet) return;
-    await mcqStore.reset(activeSet.id);
+    await store.reset(activeSet.id);
     bump(item.id);
   };
 
   const onDelete = async (setId: string) => {
-    await mcqStore.remove(setId);
+    await store.remove(setId);
     bump(item.id);
   };
 
@@ -154,7 +175,7 @@ export function McqController({ item, onEnterQuestions, inQuestions, onNoSet }: 
 
           {sets.length === 0 && (
             <p className="mt-1.5 text-center text-[13px] leading-none text-[var(--color-text-muted)]">
-              {hydrated && !apiKey
+              {hydrated && !canGenerate
                 ? 'Needs a Gemini API key.'
                 : `${KINDS.length} questions · ${KINDS.map(titleCase).join(', ')}`}
             </p>

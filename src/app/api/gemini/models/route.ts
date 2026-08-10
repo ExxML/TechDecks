@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { GeminiError, listModels } from '@/lib/gemini/client';
-import { readApiKey, sameOriginOk, rateLimitOk } from '@/lib/gemini/guard';
+import { sameOriginOk, rateLimitOk } from '@/lib/gemini/guard';
+import { resolveGeminiKey } from '@/lib/gemini/resolveKey';
 
 /**
  * Proxied because generativelanguage.googleapis.com rejects browser fetches
@@ -17,7 +18,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Too many requests — wait a moment' }, { status: 429 });
   }
 
-  const apiKey = readApiKey(request);
+  const apiKey = await resolveGeminiKey(request);
   if (!apiKey) {
     return NextResponse.json({ error: 'Add your Gemini API key in Settings' }, { status: 401 });
   }

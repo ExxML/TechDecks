@@ -1,6 +1,8 @@
+import { Suspense } from 'react';
 import { createClient } from '@/lib/supabase/server';
 import { fetchFeedPage } from '@/lib/queries';
 import { ProblemFeed } from '@/components/ProblemFeed';
+import { FeedSkeleton } from '@/components/FeedSkeleton';
 
 /**
  * The feed is the front door — no landing page, no hero. First page is
@@ -8,7 +10,20 @@ import { ProblemFeed } from '@/components/ProblemFeed';
  */
 export const dynamic = 'force-dynamic';
 
-export default async function ProblemsPage() {
+export default function ProblemsPage() {
+  // The Suspense boundary lives HERE rather than in a loading.tsx. A loading
+  // file covers the whole /problems segment including /problems/[slug], and its
+  // boundary flushes the response shell before the slug lookup resolves — which
+  // downgrades a missing slug's notFound() to a soft 404 (right page, 200
+  // status). Scoping it to this route keeps the skeleton without that cost.
+  return (
+    <Suspense fallback={<FeedSkeleton />}>
+      <FeedContents />
+    </Suspense>
+  );
+}
+
+async function FeedContents() {
   const db = await createClient();
   const page = await fetchFeedPage(db, null);
 

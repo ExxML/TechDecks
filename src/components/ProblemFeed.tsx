@@ -98,7 +98,14 @@ export function ProblemFeed({ initialItems, initialCursor }: Props) {
   return (
     <div
       ref={containerRef}
-      className="no-scrollbar h-[calc(100dvh-48px)] snap-y snap-mandatory overflow-y-auto"
+      // tabIndex makes the scroller focusable, which is what gives arrow keys,
+      // PageUp/PageDown and Home/End somewhere to act. Native scroll-snap then
+      // does the paging itself — no key handler needed, and none that could
+      // fight the browser's own momentum.
+      tabIndex={0}
+      role="region"
+      aria-label="Problem feed"
+      className="no-scrollbar h-[calc(100dvh-48px)] snap-y snap-mandatory overflow-y-auto focus:outline-none"
     >
       {items.map((item) => (
         <ProblemCard key={item.id} item={item} />

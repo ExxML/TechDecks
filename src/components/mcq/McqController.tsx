@@ -152,6 +152,7 @@ export function McqController({ item, onEnterQuestions, inQuestions, onNoSet }: 
         onAnswer={onAnswer}
         onRetry={onRetry}
         onRegenerate={() => setShowOptions(true)}
+        onExit={onNoSet}
       />
     );
   }

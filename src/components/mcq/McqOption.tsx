@@ -26,10 +26,10 @@ export function McqOption({ text, index, selected, isCorrect, committed, onSelec
   if (committed) {
     if (isCorrect) {
       borderColor = 'var(--color-correct)';
-      background = 'rgba(0,184,163,0.08)';
+      background = 'var(--color-correct-wash)';
     } else if (selected) {
       borderColor = 'var(--color-incorrect)';
-      background = 'rgba(255,55,95,0.08)';
+      background = 'var(--color-incorrect-wash)';
     }
   }
 
@@ -41,6 +41,9 @@ export function McqOption({ text, index, selected, isCorrect, committed, onSelec
       onClick={onSelect}
       disabled={committed}
       aria-pressed={selected}
+      // The letter is also the keyboard shortcut, so name it for anyone who
+      // cannot see the badge.
+      aria-keyshortcuts={committed ? undefined : LETTERS[index]}
       className={
         'w-full rounded-[4px] border px-3 py-2.5 text-left transition-colors duration-100 ' +
         (committed ? 'cursor-default' : 'hover:border-[var(--color-text-muted)]')

@@ -40,6 +40,14 @@ export function McqPanel({ question, answer, onAnswer }: Props) {
         ))}
       </div>
 
+      {/* Shortcut hint on pointer devices only: it is noise on a phone, where
+          there is no keyboard to use. */}
+      {!committed && (
+        <p className="mt-2 hidden text-[12px] leading-none text-[var(--color-text-muted)] [@media(any-hover:hover)]:block">
+          Press 1–4 to answer · ← → to move
+        </p>
+      )}
+
       {committed && (
         <div className="mt-3 rounded-[4px] border border-[var(--color-border)] bg-[var(--color-surface)] p-3">
           <p className="mb-1 text-[12px] leading-none font-medium text-[var(--color-text-muted)]">

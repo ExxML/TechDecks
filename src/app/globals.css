@@ -3,8 +3,8 @@
 /* ==========================================================================
    Design tokens — LeetCode's actual values.
 
-   Dark is the primary theme. The light tokens are defined but not yet applied;
-   there is no theme toggle until they are.
+   Dark is the primary theme. The light palette is applied by the theme blocks
+   below — see them for how the three selection states resolve.
    ========================================================================== */
 
 @theme {
@@ -22,12 +22,25 @@
   --color-correct: #00b8a3;
   --color-incorrect: #ff375f;
 
-  /* light */
-  --color-bg-light: #ffffff;
-  --color-surface-light: #f7f8fa;
-  --color-border-light: #e0e0e0;
-  --color-text-light: #262626;
-  --color-muted-light: #616161;
+  /* Hover/active fills for surface-alt controls. Tokens rather than literals
+     because the direction inverts between themes: dark surfaces lighten on
+     hover, light surfaces darken. */
+  --color-surface-hover: #383838;
+  --color-surface-active: #333333;
+
+  /* Text that sits ON the orange accent. Near-black in BOTH themes — the
+     accent does not change, so neither does what is legible against it. */
+  --color-on-accent: #1a1a1a;
+
+  /* Faint wash behind a committed MCQ option. Tokens because an 8% tint tuned
+     for a #1a1a1a ground is nearly invisible on white. */
+  --color-correct-wash: rgba(0, 184, 163, 0.08);
+  --color-incorrect-wash: rgba(255, 55, 95, 0.08);
+
+  /* The light palette is NOT defined here as `--color-*-light` aliases. Those
+     would be a second set of names every component would have to choose
+     between; instead the theme blocks below redefine these same tokens, so
+     components reference one name and never know which theme is active. */
 
   /* Typography. Body is 14px: LeetCode is dense, and 16px body immediately
      reads as a generic AI-built site. */
@@ -58,6 +71,64 @@
   /* Fixed chrome. Every piece of card math depends on this being 48px. */
   --tabbar-height: 48px;
 }
+
+/* ==========================================================================
+   Light theme
+
+   Three states, in this order: dark is the default; the OS preference applies
+   when the user has expressed no choice; an explicit choice always wins.
+
+   The `:not([data-theme='dark'])` guard on the media query is what makes
+   "Dark" a real selection rather than a no-op on a light-mode OS — without it
+   the media query would re-apply the light palette over the explicit choice.
+
+   Surfaces get LIGHTER as they recede in dark mode and DARKER in light mode,
+   so surface-alt is not simply inverted; each theme picks its own values.
+   ========================================================================== */
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme='dark']) {
+    --color-bg: #ffffff;
+    --color-surface: #f7f8fa;
+    --color-surface-alt: #eff1f4;
+    --color-border: #e0e0e0;
+    --color-text: #262626;
+    --color-text-muted: #616161;
+    --color-surface-hover: #e5e7ea;
+    --color-surface-active: #dcdee1;
+    /* Difficulty and state colours are darkened for contrast against white:
+       the dark-theme values are tuned for a #1a1a1a ground and fail WCAG AA
+       on paper-white. Hue is preserved so the meaning does not shift. */
+    --color-easy: #00806f;
+    --color-medium: #9a6c00;
+    --color-hard: #d61f42;
+    --color-correct: #00806f;
+    --color-incorrect: #d61f42;
+    --color-correct-wash: rgba(0, 128, 111, 0.1);
+    --color-incorrect-wash: rgba(214, 31, 66, 0.1);
+  }
+}
+
+:root[data-theme='light'] {
+  --color-bg: #ffffff;
+  --color-surface: #f7f8fa;
+  --color-surface-alt: #eff1f4;
+  --color-border: #e0e0e0;
+  --color-text: #262626;
+  --color-text-muted: #616161;
+  --color-surface-hover: #e5e7ea;
+  --color-surface-active: #dcdee1;
+  --color-easy: #00806f;
+  --color-medium: #9a6c00;
+  --color-hard: #d61f42;
+  --color-correct: #00806f;
+  --color-incorrect: #d61f42;
+  --color-correct-wash: rgba(0, 128, 111, 0.1);
+  --color-incorrect-wash: rgba(214, 31, 66, 0.1);
+}
+
+/* The accent is deliberately absent from both light blocks: LeetCode orange is
+   the brand colour and does not change with the theme. */
 
 /* ==========================================================================
    Base

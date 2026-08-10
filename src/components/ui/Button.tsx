@@ -10,11 +10,11 @@ type Props = ButtonHTMLAttributes<HTMLButtonElement> & {
 /** 4px radius, 1px borders, no shadow. Orange is reserved for the primary CTA. */
 const VARIANTS: Record<Variant, string> = {
   primary:
-    'bg-[var(--color-accent)] text-[#1a1a1a] font-medium ' +
+    'bg-[var(--color-accent)] text-[var(--color-on-accent)] font-medium ' +
     'hover:opacity-90 active:opacity-80 disabled:opacity-40',
   secondary:
     'bg-[var(--color-surface-alt)] text-[var(--color-text)] border border-[var(--color-border)] ' +
-    'hover:bg-[#383838] active:bg-[#333] disabled:opacity-40',
+    'hover:bg-[var(--color-surface-hover)] active:bg-[var(--color-surface-active)] disabled:opacity-40',
   ghost:
     'bg-transparent text-[var(--color-text-muted)] ' +
     'hover:text-[var(--color-text)] active:opacity-80 disabled:opacity-40',

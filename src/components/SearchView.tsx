@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Search, SlidersHorizontal, X } from 'lucide-react';
 import { CompactList } from './CompactList';
+import { CompactListSkeleton } from './CompactListSkeleton';
 import { FilterSheet } from './FilterSheet';
 import { createClient } from '@/lib/supabase/client';
 import { searchContentItems, SEARCH_PAGE_SIZE } from '@/lib/queries';
@@ -154,7 +155,7 @@ export function SearchView() {
         >
           <SlidersHorizontal size={16} />
           {activeFilterCount > 0 && (
-            <span className="absolute -top-1.5 -right-1.5 flex h-4 min-w-4 items-center justify-center rounded-[4px] bg-[var(--color-accent)] px-1 text-[10px] leading-none text-[#1a1a1a]">
+            <span className="absolute -top-1.5 -right-1.5 flex h-4 min-w-4 items-center justify-center rounded-[4px] bg-[var(--color-accent)] px-1 text-[10px] leading-none text-[var(--color-on-accent)]">
               {activeFilterCount}
             </span>
           )}
@@ -170,7 +171,9 @@ export function SearchView() {
       <div className="min-h-0 flex-1 overflow-y-auto">
         {error && <p className="px-4 py-3 text-[13px] text-[var(--color-incorrect)]">{error}</p>}
 
-        {showEmpty && !error ? (
+        {page === null && !error ? (
+          <CompactListSkeleton />
+        ) : showEmpty && !error ? (
           <div className="flex h-full flex-col items-center justify-center gap-3 px-6">
             <p className="text-center text-[14px] text-[var(--color-text-muted)]">
               {filtersAreEmpty(filters) ? 'Search the problem catalog.' : 'No problems match'}

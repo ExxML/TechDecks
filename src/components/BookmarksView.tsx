@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { CompactList } from './CompactList';
+import { CompactListSkeleton } from './CompactListSkeleton';
 import { BookmarkButton } from './BookmarkButton';
 import { AuthButton } from './AuthButton';
 import { createClient } from '@/lib/supabase/client';
@@ -38,7 +39,7 @@ export function BookmarksView() {
   const loading = authLoading || (user !== null && items === null);
 
   if (loading) {
-    return <div className="h-[calc(100dvh-48px)]" aria-hidden="true" />;
+    return <CompactListSkeleton />;
   }
 
   if (!user) {

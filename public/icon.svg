@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="TechDecks">
+  <!-- A stack of cards: the feed is a deck of problems, and the mark is flat
+       geometry rather than a gradient or a glyph, matching the UI's 1px-border
+       visual language. -->
+  <rect width="512" height="512" rx="96" fill="#1a1a1a"/>
+  <rect x="128" y="112" width="256" height="88" rx="12" fill="#3e3e3e"/>
+  <rect x="112" y="176" width="288" height="96" rx="12" fill="#8a8a8a"/>
+  <rect x="96" y="248" width="320" height="152" rx="16" fill="#ffa116"/>
+</svg>

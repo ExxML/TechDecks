@@ -6,6 +6,7 @@ import { Button } from './ui/Button';
 import { Select } from './ui/Select';
 import { ApiKeyDialog } from './ApiKeyDialog';
 import { AuthButton } from './AuthButton';
+import { ThemeToggle } from './ThemeToggle';
 import { useSettings } from '@/lib/settings';
 import { useUser } from '@/lib/auth';
 import { useModels } from '@/lib/gemini/useModels';
@@ -55,7 +56,7 @@ export function SettingsView() {
           </p>
           <Link
             href="/my"
-            className="inline-flex min-h-[40px] items-center justify-center gap-2 rounded-[4px] border border-[var(--color-border)] bg-[var(--color-surface-alt)] px-4 text-[14px] leading-none text-[var(--color-text)] transition-colors duration-100 hover:bg-[#383838]"
+            className="inline-flex min-h-[40px] items-center justify-center gap-2 rounded-[4px] border border-[var(--color-border)] bg-[var(--color-surface-alt)] px-4 text-[14px] leading-none text-[var(--color-text)] transition-colors duration-100 hover:bg-[var(--color-surface-hover)]"
           >
             Open my problems
           </Link>
@@ -147,6 +148,11 @@ export function SettingsView() {
             )}
           </Select>
         </div>
+      </section>
+
+      <section className="mt-6">
+        <h2 className="mb-2 text-[13px] font-medium text-[var(--color-text)]">Theme</h2>
+        <ThemeToggle />
       </section>
 
       <section className="mt-6 border-t border-[var(--color-border)] pt-4">

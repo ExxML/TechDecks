@@ -19,7 +19,10 @@
     "verify:auth": "tsx scripts/verify-auth.mts",
     "verify:migration": "tsx scripts/verify-migration.mts",
     "verify:authored": "tsx scripts/verify-authored.mts",
-    "verify:search": "tsx scripts/verify-search.mts"
+    "verify:search": "tsx scripts/verify-search.mts",
+    "verify:sync": "tsx scripts/verify-sync.mts",
+    "sync:delta": "tsx scripts/sync-delta.ts",
+    "sync:heartbeat": "tsx scripts/sync-delta.ts --heartbeat"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.4",

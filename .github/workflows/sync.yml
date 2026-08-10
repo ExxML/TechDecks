@@ -1,0 +1,60 @@
+name: Sync LeetCode deltas
+
+# Monthly. The bulk load is a one-time local run; this only picks up new and
+# changed problems, which is ~30 listing requests plus a capped number of detail
+# fetches.
+#
+# Runs here rather than on Vercel for two reasons, both fatal there: writing
+# content_items needs the service-role key, which is banned from Vercel, and the
+# deliberate 1 req/s throttle over up to 200 detail fetches exceeds Vercel
+# Hobby's 300s ceiling before any backoff. Actions allows six hours.
+on:
+  schedule:
+    - cron: '0 6 1 * *'
+  workflow_dispatch:
+    inputs:
+      max_detail:
+        description: 'Max detail fetches this run'
+        required: false
+        default: '200'
+      dry_run:
+        description: 'Detect only, write nothing'
+        type: boolean
+        required: false
+        default: false
+
+# Two runs writing content_items at once would double the request rate against
+# LeetCode and race on the same sync_runs resume row.
+concurrency:
+  group: leetcode-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    # 200 detail fetches at 1 req/s is ~4 minutes of throttle alone; backoff on a
+    # rate-limited run can multiply that. Well under the 6h ceiling, but bounded
+    # so a wedged run cannot burn the monthly Actions budget.
+    timeout-minutes: 90
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Run delta sync
+        env:
+          # Service-role bypasses RLS, which is what lets this write public
+          # content_items rows. It lives here and in the author's local .env
+          # only — never in Vercel, and never in a NEXT_PUBLIC_ var.
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          npx tsx scripts/sync-delta.ts \
+            --max-detail "${{ github.event.inputs.max_detail || '200' }}" \
+            ${{ github.event.inputs.dry_run == 'true' && '--dry-run' || '' }}

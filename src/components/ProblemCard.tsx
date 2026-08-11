@@ -8,14 +8,13 @@ import { McqController } from './mcq/McqController';
 import type { ContentItem } from '@/lib/types';
 
 /**
- * One full-viewport card, `grid-rows-[auto_1fr_auto]`, in one of two states
- * that never coexist: Reading (header, scrollable body, action bar) and
- * Questions (one-line title bar, MCQ strip).
+ * One full-viewport card in one of two states that never coexist: Reading
+ * (scrollable body carrying the problem header, then the action bar) and
+ * Questions (one-line title bar, then the MCQ strip).
  *
  * The body scroller's `overscroll-behavior-y: contain` stops a mid-read scroll
  * from snapping the card away, which also means a swipe there can never advance
- * the feed. The header is therefore not a scroller — swipes on it fall through
- * to the snap container. Never put a scrollable element in the header.
+ * the feed.
  */
 export function ProblemCard({ item }: { readonly item: ContentItem }) {
   const [inQuestions, setInQuestions] = useState(false);
@@ -47,10 +46,12 @@ export function ProblemCard({ item }: { readonly item: ContentItem }) {
   return (
     <article
       data-slug={item.slug}
-      className="grid h-[calc(100dvh-48px)] w-full shrink-0 snap-start grid-rows-[auto_1fr_auto] border-b border-[var(--color-border)] bg-[var(--color-bg)]"
+      className={`grid h-[calc(100dvh-48px)] w-full shrink-0 snap-start border-b border-[var(--color-border)] bg-[var(--color-bg)] ${
+        inQuestions ? 'grid-rows-[auto_1fr]' : 'grid-rows-[1fr_auto]'
+      }`}
     >
-      {inQuestions ? (
-        // State B: header collapses to one line with a way back.
+      {/* State B: header collapses to one line with a way back. */}
+      {inQuestions && (
         <div className="flex items-center gap-2 border-b border-[var(--color-border)] px-3 py-2.5">
           <button
             type="button"
@@ -64,12 +65,9 @@ export function ProblemCard({ item }: { readonly item: ContentItem }) {
             {item.title}
           </span>
         </div>
-      ) : (
-        // Not a scroller — this is the escape-gesture zone.
-        <ProblemHeader item={item} />
       )}
 
-      {/* Middle row (1fr). ProblemBody is NOT visible in State B. */}
+      {/* 1fr row. ProblemBody is NOT visible in State B. */}
       {inQuestions ? (
         <McqController
           item={item}
@@ -85,6 +83,7 @@ export function ProblemCard({ item }: { readonly item: ContentItem }) {
             onScroll={measureBody}
             className="no-scrollbar h-full overflow-y-auto overscroll-y-contain px-4 pb-10"
           >
+            <ProblemHeader item={item} />
             <ProblemBody html={item.body_html} format={item.body_format} />
           </div>
           {/* Fade mask signalling more content below — hidden once there is none. */}
@@ -99,8 +98,8 @@ export function ProblemCard({ item }: { readonly item: ContentItem }) {
         </div>
       )}
 
-      {/* Bottom row (auto). In State B the strip owns the middle row and
-          carries its own stepper, so the action bar belongs to State A only. */}
+      {/* Bottom row (auto). In State B the strip owns the 1fr row and carries
+          its own stepper, so the action bar belongs to State A only. */}
       {!inQuestions && (
         <McqController
           item={item}

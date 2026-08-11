@@ -8,14 +8,15 @@ import { EMPTY_FILTERS, type ContentItem } from '@/lib/types';
  * The card's density cap: title, difficulty, acRate, bookmark, and at most 3
  * tags. Nothing else — another row here turns the card into a dashboard.
  *
- * This row is also the escape-gesture zone, so it must never become a scroller.
+ * Scrolls away with the description: it is the first block inside the body
+ * scroller, so it inherits that scroller's horizontal padding.
  */
 export function ProblemHeader({ item }: { readonly item: ContentItem }) {
   const acRate = item.metadata.acRate;
   const tags = item.tags.slice(0, 3);
 
   return (
-    <div className="px-4 pt-4 pb-3">
+    <div className="pt-4 pb-3">
       <div className="flex items-start gap-2">
         <h2 className="min-w-0 flex-1 text-[18px] leading-tight font-medium text-[var(--color-text)]">
           {item.sort_key !== null && (

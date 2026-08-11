@@ -161,13 +161,13 @@ export function McqController({ item, onEnterQuestions, inQuestions, onNoSet }: 
   const latest = sets[0];
 
   return (
-    <div className="border-t border-[var(--color-border)] px-4 py-3">
+    <div className="border-t border-[var(--color-border)] px-4 py-6">
       {generating ? (
         <>
           <Button variant="primary" className="w-full" disabled>
             Generating questions… ~20s
           </Button>
-          <div className="mt-2 flex gap-2">
+          <div className="mt-4 flex gap-2">
             <Skeleton className="h-2 flex-1" />
             <Skeleton className="h-2 flex-1" />
             <Skeleton className="h-2 flex-1" />
@@ -184,7 +184,7 @@ export function McqController({ item, onEnterQuestions, inQuestions, onNoSet }: 
           </Button>
 
           {sets.length === 0 && (
-            <p className="mt-1.5 text-center text-[13px] leading-none text-[var(--color-text-muted)]">
+            <p className="mt-3 text-center text-[13px] leading-none text-[var(--color-text-muted)]">
               {hydrated && !canGenerate
                 ? 'Needs a Gemini API key.'
                 : `${kinds.length} question${kinds.length === 1 ? '' : 's'} · ${kinds.map(titleCase).join(', ')}`}
@@ -192,7 +192,7 @@ export function McqController({ item, onEnterQuestions, inQuestions, onNoSet }: 
           )}
 
           {sets.length > 0 && (
-            <div className="mt-1.5 flex items-center justify-center gap-3">
+            <div className="mt-3 flex items-center justify-center gap-3">
               <button
                 type="button"
                 onClick={() => setShowHistory(true)}
@@ -213,7 +213,7 @@ export function McqController({ item, onEnterQuestions, inQuestions, onNoSet }: 
         </>
       )}
 
-      {error && <p className="mt-2 text-center text-[12px] text-[var(--color-incorrect)]">{error}</p>}
+      {error && <p className="mt-4 text-center text-[12px] text-[var(--color-incorrect)]">{error}</p>}
 
       <GenerateOptionsSheet
         open={showOptions}

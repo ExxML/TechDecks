@@ -22,6 +22,9 @@ export function TabBar() {
     <nav
       className="fixed inset-x-0 bottom-0 z-50 flex h-[48px] border-t border-[var(--color-border)] bg-[var(--color-surface)]"
       aria-label="Primary"
+      // The bar is a row of tap targets, never a scroll surface: without this a
+      // drag across it pans the page itself, shifting the frame behind it.
+      style={{ touchAction: 'none' }}
     >
       {TABS.map(({ href, label, Icon }) => {
         const active = pathname === href || pathname.startsWith(`${href}/`);

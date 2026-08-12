@@ -27,6 +27,8 @@ function authoredLanguage(item: ContentItem): string | null {
 
 type Props = {
   readonly item: ContentItem;
+  /** False on a peeking card, whose strip must not claim the keyboard. */
+  readonly active: boolean;
   /** Card asks to switch to State B (questions) or back to State A (reading). */
   readonly onEnterQuestions: () => void;
   readonly inQuestions: boolean;
@@ -41,7 +43,7 @@ type Props = {
  * All reads and writes go through mcqStore, so swapping the McqStore
  * implementation changes nothing here.
  */
-export function McqController({ item, onEnterQuestions, inQuestions, onNoSet }: Props) {
+export function McqController({ item, active, onEnterQuestions, inQuestions, onNoSet }: Props) {
   const { user } = useUser();
   const store = useMemo(() => getMcqStore(user?.id ?? null), [user?.id]);
   // Preset four for synced problems, the author's 1–8 for authored ones.
@@ -149,6 +151,7 @@ export function McqController({ item, onEnterQuestions, inQuestions, onNoSet }: 
       <McqStrip
         set={activeSet}
         grounded={grounded}
+        active={active}
         onAnswer={onAnswer}
         onRetry={onRetry}
         onRegenerate={() => setShowOptions(true)}

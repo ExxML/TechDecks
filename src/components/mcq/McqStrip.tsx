@@ -1,9 +1,10 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { McqPanel } from './McqPanel';
 import { McqSummary } from './McqSummary';
 import { McqStepper } from './McqStepper';
+import { usePager } from '@/lib/pager';
 import { shouldIgnoreShortcut } from '@/lib/keyboard';
 import type { McqSet } from '@/lib/mcq/store';
 
@@ -12,6 +13,9 @@ type Props = {
   /** False when generation ran at the bottom of the grounding ladder. Surfaced
    *  once, in the summary panel — never repeated per question. */
   readonly grounded: boolean;
+  /** False on a peeking card, whose key handler must not answer the reader's
+   *  question on the card they are actually looking at. */
+  readonly active: boolean;
   readonly onAnswer: (index: number, selectedIndex: number) => void;
   readonly onRetry: () => void;
   readonly onRegenerate: () => void;
@@ -20,69 +24,75 @@ type Props = {
 };
 
 /**
- * One panel per question plus a summary, snapping horizontally against the
- * feed's vertical snap. Panel count comes from the set; nothing assumes 4.
+ * One panel per question plus a summary, paged horizontally against the feed's
+ * vertical paging. Panel count comes from the set; nothing assumes 4.
+ *
+ * Shares `usePager` with the feed, so a horizontal trackpad flick moves exactly
+ * one panel for the same reason a vertical one moves exactly one card.
  */
-export function McqStrip({ set, grounded, onAnswer, onRetry, onRegenerate, onExit }: Props) {
-  const stripRef = useRef<HTMLDivElement>(null);
-  const [active, setActive] = useState(0);
+export function McqStrip({ set, grounded, active, onAnswer, onRetry, onRegenerate, onExit }: Props) {
+  const rootRef = useRef<HTMLDivElement>(null);
+  const [panel, setPanel] = useState(0);
+  const [pageSize, setPageSize] = useState(0);
   const panelCount = set.questions.length + 1; // + summary
+  // A regenerated set can be shorter than the panel we were on, so the index is
+  // clamped on read rather than corrected by an effect after a bad render.
+  const at = Math.min(panel, panelCount - 1);
 
-  const scrollTo = useCallback((index: number) => {
-    const strip = stripRef.current;
-    if (!strip) return;
-    strip.scrollTo({ left: index * strip.clientWidth, behavior: 'smooth' });
-  }, []);
-
-  // Track which panel is showing so the stepper stays in sync with a manual swipe.
+  // Panel width in px. Measured, since the pager works in pixels and the strip
+  // is not always the full viewport.
   useEffect(() => {
-    const strip = stripRef.current;
-    if (!strip) return;
-    let frame = 0;
-    const onScroll = () => {
-      cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(() => {
-        const width = strip.clientWidth;
-        if (width > 0) setActive(Math.round(strip.scrollLeft / width));
-      });
-    };
-    strip.addEventListener('scroll', onScroll, { passive: true });
-    return () => {
-      strip.removeEventListener('scroll', onScroll);
-      cancelAnimationFrame(frame);
-    };
+    const el = rootRef.current;
+    if (!el) return;
+    const measure = () => setPageSize(el.clientWidth);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
   }, []);
+
+  // Panels only ever scroll vertically, so nothing inside the strip competes
+  // for the horizontal axis and there is no inner scroller to forward to.
+  const pager = usePager({
+    axis: 'x',
+    count: panelCount,
+    index: at,
+    onIndexChange: setPanel,
+    pageSize,
+    enabled: active,
+  });
 
   const answeredFlags = set.questions.map((_, i) => (set.answers[i] ?? null) !== null);
 
   // Mirrors of what the key handler needs, so the listener is bound once rather
   // than torn down and rebuilt on every panel change or answer.
-  const stateRef = useRef({ active, set, onAnswer, onExit });
+  const stateRef = useRef({ at, set, active, onAnswer, onExit, goTo: pager.goTo });
   useEffect(() => {
-    stateRef.current = { active, set, onAnswer, onExit };
-  }, [active, set, onAnswer, onExit]);
+    stateRef.current = { at, set, active, onAnswer, onExit, goTo: pager.goTo };
+  });
 
   /**
    * Keyboard control for the question flow.
    *
    * Left/Right move panels, 1-4 (and A-D) commit an answer, Escape leaves.
-   * Vertical arrows are deliberately NOT handled: they belong to the feed's
-   * native scroll-snap, which already does the right thing.
+   * Vertical arrows are deliberately NOT handled: they belong to the feed,
+   * which pages cards with them.
    */
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (shouldIgnoreShortcut(e)) return;
-      const { active: at, set: current, onAnswer: answer, onExit: exit } = stateRef.current;
+      const { at: panel, set: current, active: on, onAnswer: answer, onExit: exit, goTo } = stateRef.current;
+      if (!on) return;
       const lastPanel = current.questions.length; // the summary
 
       if (e.key === 'ArrowRight') {
         e.preventDefault();
-        scrollTo(Math.min(at + 1, lastPanel));
+        goTo(Math.min(panel + 1, lastPanel));
         return;
       }
       if (e.key === 'ArrowLeft') {
         e.preventDefault();
-        scrollTo(Math.max(at - 1, 0));
+        goTo(Math.max(panel - 1, 0));
         return;
       }
       if (e.key === 'Escape' && exit) {
@@ -92,51 +102,69 @@ export function McqStrip({ set, grounded, onAnswer, onRetry, onRegenerate, onExi
       }
 
       // Answering applies to a question panel only, never the summary.
-      if (at >= current.questions.length) return;
+      if (panel >= current.questions.length) return;
       // One attempt per question: a committed answer cannot be changed, by
       // keyboard any more than by tap.
-      if ((current.answers[at] ?? null) !== null) return;
+      if ((current.answers[panel] ?? null) !== null) return;
 
       const fromDigit = '1234'.indexOf(e.key);
       const fromLetter = 'abcd'.indexOf(e.key.toLowerCase());
       const choice = fromDigit >= 0 ? fromDigit : fromLetter;
       if (choice >= 0) {
         e.preventDefault();
-        answer(at, choice);
+        answer(panel, choice);
       }
     };
 
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [scrollTo]);
+  }, []);
 
   return (
     <div className="grid min-h-0 grid-rows-[1fr_auto]">
       <div
-        ref={stripRef}
-        className="no-scrollbar flex min-h-0 snap-x snap-mandatory overflow-x-auto overflow-y-hidden overscroll-x-contain"
+        ref={(node) => {
+          rootRef.current = node;
+          pager.ref(node);
+        }}
+        className="relative min-h-0 overflow-hidden"
+        // This pager owns the horizontal axis and the feed's owns the vertical
+        // one, so no gesture in here is ever the browser's.
+        style={{ touchAction: 'none' }}
+        {...pager.handlers}
       >
-        {set.questions.map((q, i) => (
-          <McqPanel
-            key={i}
-            question={q}
-            answer={set.answers[i] ?? null}
-            onAnswer={(selected) => onAnswer(i, selected)}
+        <div
+          className="absolute inset-y-0 left-0 flex will-change-transform"
+          style={{
+            width: panelCount * pageSize,
+            transform: `translate3d(${pager.offset}px, 0, 0)`,
+            transition: pager.dragging ? 'none' : 'transform 260ms cubic-bezier(0.22, 1, 0.36, 1)',
+          }}
+        >
+          {set.questions.map((q, i) => (
+            <McqPanel
+              key={i}
+              question={q}
+              answer={set.answers[i] ?? null}
+              width={pageSize}
+              onAnswer={(selected) => onAnswer(i, selected)}
+            />
+          ))}
+          <McqSummary
+            set={set}
+            grounded={grounded}
+            width={pageSize}
+            onRetry={onRetry}
+            onRegenerate={onRegenerate}
           />
-        ))}
-        <McqSummary
-          set={set}
-          grounded={grounded}
-          onRetry={onRetry}
-          onRegenerate={onRegenerate}
-        />
+        </div>
       </div>
 
       <McqStepper
         count={panelCount}
-        active={active}
+        active={at}
         answered={[...answeredFlags, false]}
-        onSelect={scrollTo}
+        onSelect={pager.goTo}
       />
     </div>
   );

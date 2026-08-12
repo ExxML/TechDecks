@@ -5,6 +5,8 @@ import type { McqAnswer } from '@/lib/mcq/store';
 type Props = {
   readonly question: Mcq;
   readonly answer: McqAnswer | null;
+  /** Measured by the strip, which pages in pixels. */
+  readonly width: number;
   readonly onAnswer: (selectedIndex: number) => void;
 };
 
@@ -12,13 +14,17 @@ type Props = {
  * The explanation stays hidden until commit, since it contains the answer, and
  * there is no auto-advance past it.
  */
-export function McqPanel({ question, answer, onAnswer }: Props) {
+export function McqPanel({ question, answer, width, onAnswer }: Props) {
   const committed = answer !== null;
   // Authored kinds fall back to the raw kind name.
   const gloss = KIND_LABELS[question.kind.toLowerCase()];
 
   return (
-    <div className="no-scrollbar h-full w-full shrink-0 snap-start overflow-y-auto overscroll-y-contain px-4 pb-4">
+    <div
+      className="no-scrollbar h-full shrink-0 overflow-y-auto px-4 pb-4"
+      // Scrolled by the feed's pager — see ProblemCard's description body.
+      style={{ width, touchAction: 'none' }}
+    >
       <p className="pt-3 pb-2 text-[12px] leading-none tracking-wide text-[var(--color-text-muted)] uppercase">
         {question.kind}
         {gloss ? ` · ${gloss}` : ''}

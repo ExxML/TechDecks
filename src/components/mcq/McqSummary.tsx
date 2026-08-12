@@ -5,19 +5,25 @@ import type { McqSet } from '@/lib/mcq/store';
 type Props = {
   readonly set: McqSet;
   readonly grounded: boolean;
+  /** Measured by the strip, which pages in pixels. */
+  readonly width: number;
   readonly onRetry: () => void;
   readonly onRegenerate: () => void;
 };
 
 /** Final panel appended to the strip: score, per-kind breakdown, actions. */
-export function McqSummary({ set, grounded, onRetry, onRegenerate }: Props) {
+export function McqSummary({ set, grounded, width, onRetry, onRegenerate }: Props) {
   const total = set.questions.length;
   const answered = set.answers.filter((a): a is NonNullable<typeof a> => a !== null);
   const score = answered.filter((a) => a.correct).length;
   const complete = answered.length >= total;
 
   return (
-    <div className="no-scrollbar h-full w-full shrink-0 snap-start overflow-y-auto overscroll-y-contain px-4 pb-4">
+    <div
+      className="no-scrollbar h-full shrink-0 overflow-y-auto px-4 pb-4"
+      // Scrolled by the feed's pager — see ProblemCard's description body.
+      style={{ width, touchAction: 'none' }}
+    >
       <p className="pt-3 pb-2 text-[12px] leading-none tracking-wide text-[var(--color-text-muted)] uppercase">
         Summary
       </p>

@@ -1,8 +1,11 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ProblemCard } from './ProblemCard';
 import { Skeleton } from './ui/Skeleton';
+import { usePager } from '@/lib/pager';
+import { innerScrollerOn } from '@/lib/scrollYield';
+import { shouldIgnoreShortcut } from '@/lib/keyboard';
 import type { ContentItem, FeedCursor } from '@/lib/types';
 
 type Props = {
@@ -10,11 +13,19 @@ type Props = {
   readonly initialCursor: FeedCursor | null;
 };
 
+/** Cards kept mounted either side of the active one. One is enough to render
+ *  the peek during a drag; more only multiplies McqController's store reads. */
+const WINDOW = 1;
+/** Load the next page this many cards from the end. */
+const PREFETCH_WITHIN = 3;
+
 /**
- * The vertical snap feed.
+ * The vertical card feed.
  *
- * Native CSS scroll-snap, no gesture library: zero bundle cost, correct
- * momentum, and keyboard/desktop scrolling for free.
+ * Cards live on one transformed track driven by `usePager` rather than by
+ * scroll-snap, so a trackpad flick, a mouse wheel and a thumb swipe all move
+ * exactly one card. See lib/pager.ts for why the browser cannot be trusted
+ * with this.
  *
  * `dvh` not `vh` — mobile browser chrome resizes vh, which produces a visible
  * jump as the URL bar hides.
@@ -23,19 +34,36 @@ export function ProblemFeed({ initialItems, initialCursor }: Props) {
   const [items, setItems] = useState<readonly ContentItem[]>(initialItems);
   const [cursor, setCursor] = useState<FeedCursor | null>(initialCursor);
   const [loading, setLoading] = useState(false);
+  const [active, setActive] = useState(0);
 
-  const containerRef = useRef<HTMLDivElement>(null);
-  const sentinelRef = useRef<HTMLDivElement>(null);
-  // Ref mirrors of the paging state, so the IntersectionObserver callback can
-  // read current values without the observer being torn down and rebuilt on
-  // every state change. Synced in an effect, never during render.
+  // Which cards are showing questions. Held here rather than in ProblemCard
+  // because a windowed card unmounts as it leaves the window, and a reader who
+  // pages away mid-question must find the question still there on return.
+  const [questionCards, setQuestionCards] = useState<ReadonlySet<string>>(() => new Set());
+
+  const rootRef = useRef<HTMLDivElement>(null);
+  const [pageSize, setPageSize] = useState(0);
+
+  // Ref mirrors of the paging state, so loadMore can be bound once and still
+  // read current values. Synced in an effect, never during render.
   const cursorRef = useRef(cursor);
   const loadingRef = useRef(loading);
-
   useEffect(() => {
     cursorRef.current = cursor;
     loadingRef.current = loading;
   }, [cursor, loading]);
+
+  // The card height in px. Measured rather than computed from 100dvh: the pager
+  // works in pixels, and dvh resolves differently while mobile chrome animates.
+  useEffect(() => {
+    const el = rootRef.current;
+    if (!el) return;
+    const measure = () => setPageSize(el.clientHeight);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
   const loadMore = useCallback(async () => {
     const c = cursorRef.current;
@@ -52,80 +80,139 @@ export function ProblemFeed({ initialItems, initialCursor }: Props) {
       });
       setCursor(page.nextCursor);
     } catch {
-      // Leave the cursor intact so the next intersection retries.
+      // Leave the cursor intact so the next approach retries.
       setCursor(cursorRef.current);
     } finally {
       setLoading(false);
     }
   }, []);
 
-  // Infinite scroll: fire when the sentinel below the last card approaches.
+  // Infinite scroll. Driven by the active index rather than a sentinel: with a
+  // windowed track there is no element near the end to observe.
   useEffect(() => {
-    const el = sentinelRef.current;
-    const root = containerRef.current;
-    if (!el || !root) return;
-    const io = new IntersectionObserver(
-      (entries) => {
-        if (entries.some((e) => e.isIntersecting)) void loadMore();
-      },
-      { root, rootMargin: '300% 0px' }, // prefetch ~3 cards ahead
-    );
-    io.observe(el);
-    return () => io.disconnect();
-  }, [loadMore]);
+    if (items.length - active <= PREFETCH_WITHIN) void loadMore();
+  }, [active, items.length, loadMore]);
 
-  // Reflect the active card in the URL without a navigation, so a deep link
-  // can be copied mid-scroll and the back button still works.
+  // Reflect the active card in the URL without a navigation, so a deep link can
+  // be copied mid-feed and the back button still leaves the feed.
   useEffect(() => {
-    const root = containerRef.current;
-    if (!root) return;
-    const io = new IntersectionObserver(
-      (entries) => {
-        const visible = entries
-          .filter((e) => e.isIntersecting)
-          .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
-        const slug = visible?.target.getAttribute('data-slug');
-        if (slug && window.location.pathname !== `/problems/${slug}`) {
-          window.history.replaceState(null, '', `/problems/${slug}`);
-        }
-      },
-      { root, threshold: 0.6 },
-    );
-    for (const card of root.querySelectorAll('article[data-slug]')) io.observe(card);
-    return () => io.disconnect();
-  }, [items]);
+    const slug = items[active]?.slug;
+    if (slug && window.location.pathname !== `/problems/${slug}`) {
+      window.history.replaceState(null, '', `/problems/${slug}`);
+    }
+  }, [active, items]);
+
+  const innerScroller = useMemo(() => innerScrollerOn('y'), []);
+
+  const pager = usePager({
+    axis: 'y',
+    count: items.length,
+    index: active,
+    onIndexChange: setActive,
+    pageSize,
+    innerScroller,
+  });
+
+  // Arrow keys, PageUp/PageDown and Home/End. Native scroll-snap used to supply
+  // these for free; driving the track ourselves means supplying them ourselves.
+  // Left/Right are the MCQ strip's and are not touched here.
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (shouldIgnoreShortcut(e)) return;
+      const keys: Record<string, number> = {
+        ArrowDown: active + 1,
+        ArrowUp: active - 1,
+        PageDown: active + 1,
+        PageUp: active - 1,
+        Home: 0,
+        End: items.length - 1,
+      };
+      const target = keys[e.key];
+      if (target === undefined) return;
+      e.preventDefault();
+      pager.goTo(target);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [active, items.length, pager]);
+
+  const setInQuestions = useCallback((id: string, on: boolean) => {
+    setQuestionCards((prev) => {
+      if (prev.has(id) === on) return prev;
+      const next = new Set(prev);
+      if (on) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  }, []);
+
+  const first = Math.max(0, active - WINDOW);
+  const last = Math.min(items.length - 1, active + WINDOW);
+  const window_ = items.slice(first, last + 1);
 
   return (
     <div
-      ref={containerRef}
-      // tabIndex makes the scroller focusable, which is what gives arrow keys,
-      // PageUp/PageDown and Home/End somewhere to act. Native scroll-snap then
-      // does the paging itself — no key handler needed, and none that could
-      // fight the browser's own momentum.
+      ref={(node) => {
+        rootRef.current = node;
+        pager.ref(node);
+      }}
+      // tabIndex makes the feed focusable so it can be reached by keyboard;
+      // the key handler above acts globally once it is.
       tabIndex={0}
       role="region"
       aria-label="Problem feed"
-      className="no-scrollbar h-[calc(100dvh-48px)] snap-y snap-mandatory overflow-y-auto focus:outline-none"
+      aria-roledescription="carousel"
+      className="relative h-[calc(100dvh-48px)] overflow-hidden focus:outline-none"
+      // The pager owns every vertical gesture in here, including the ones it
+      // forwards to a description. A native pan would claim the pointer and
+      // cancel it, which is exactly what makes the handover at the end of a
+      // description impossible.
+      style={{ touchAction: 'none' }}
+      {...pager.handlers}
     >
-      {items.map((item) => (
-        <ProblemCard key={item.id} item={item} />
-      ))}
+      <div
+        className="absolute inset-x-0 top-0 will-change-transform"
+        style={{
+          transform: `translate3d(0, ${pager.offset}px, 0)`,
+          // No transition while the finger is down: the card tracks the drag.
+          transition: pager.dragging ? 'none' : 'transform 260ms cubic-bezier(0.22, 1, 0.36, 1)',
+        }}
+      >
+        {/* Only the window is mounted, so each card is placed at its absolute
+            index — the track's transform does the rest. */}
+        {window_.map((item, i) => (
+          <div
+            key={item.id}
+            className="absolute inset-x-0"
+            style={{ top: (first + i) * pageSize, height: pageSize }}
+            aria-hidden={first + i !== active}
+          >
+            <ProblemCard
+              item={item}
+              active={first + i === active}
+              inQuestions={questionCards.has(item.id)}
+              onQuestionsChange={(on) => setInQuestions(item.id, on)}
+            />
+          </div>
+        ))}
 
-      {/* Sentinel sits inside the scroller so rootMargin is measured against it. */}
-      <div ref={sentinelRef} aria-hidden="true" className="h-px" />
+        {loading && (
+          <div
+            className="absolute inset-x-0 flex flex-col gap-3 p-4"
+            style={{ top: items.length * pageSize, height: pageSize }}
+            aria-hidden="true"
+          >
+            <Skeleton className="h-6 w-3/4" />
+            <Skeleton className="h-3 w-1/3" />
+            <Skeleton className="mt-2 h-full w-full" />
+          </div>
+        )}
+      </div>
 
-      {loading && (
-        <div className="flex h-[calc(100dvh-48px)] shrink-0 snap-start flex-col gap-3 p-4">
-          <Skeleton className="h-6 w-3/4" />
-          <Skeleton className="h-3 w-1/3" />
-          <Skeleton className="mt-2 h-full w-full" />
-        </div>
-      )}
-
-      {!cursor && !loading && (
-        <div className="flex h-24 items-center justify-center text-[13px] text-[var(--color-text-muted)]">
+      {!cursor && !loading && active === items.length - 1 && (
+        <p className="pointer-events-none absolute inset-x-0 bottom-2 text-center text-[13px] text-[var(--color-text-muted)]">
           End of feed
-        </div>
+        </p>
       )}
     </div>
   );

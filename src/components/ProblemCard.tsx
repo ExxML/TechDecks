@@ -7,18 +7,27 @@ import { ProblemBody } from './ProblemBody';
 import { McqController } from './mcq/McqController';
 import type { ContentItem } from '@/lib/types';
 
+type Props = {
+  readonly item: ContentItem;
+  /** False for the cards peeking either side, whose keyboard handlers must not
+   *  compete with the active card's. */
+  readonly active: boolean;
+  /** Owned by the feed: a card unmounts when it leaves the window, and the
+   *  question flow has to survive that. */
+  readonly inQuestions: boolean;
+  readonly onQuestionsChange: (inQuestions: boolean) => void;
+};
+
 /**
  * One full-viewport card in one of two states that never coexist: Reading
  * (scrollable body carrying the problem header, then the action bar) and
  * Questions (one-line title bar, then the MCQ strip).
  *
- * The body scroller's `overscroll-behavior-y: contain` stops a mid-read scroll
- * from snapping the card away, which also means a swipe there can never advance
- * the feed.
+ * The body is an ordinary scroller. The feed's pager hands it any gesture it
+ * can still act on and takes the gesture back at its ends, so a long
+ * description reads normally and never traps the reader on the card.
  */
-export function ProblemCard({ item }: { readonly item: ContentItem }) {
-  const [inQuestions, setInQuestions] = useState(false);
-
+export function ProblemCard({ item, active, inQuestions, onQuestionsChange }: Props) {
   // The fade only means "more below", so it must vanish at the end of the body
   // and for bodies too short to scroll at all.
   const bodyRef = useRef<HTMLDivElement | null>(null);
@@ -46,7 +55,7 @@ export function ProblemCard({ item }: { readonly item: ContentItem }) {
   return (
     <article
       data-slug={item.slug}
-      className={`grid h-[calc(100dvh-48px)] w-full shrink-0 snap-start border-b border-[var(--color-border)] bg-[var(--color-bg)] ${
+      className={`grid h-full w-full border-b border-[var(--color-border)] bg-[var(--color-bg)] ${
         inQuestions ? 'grid-rows-[auto_1fr]' : 'grid-rows-[1fr_auto]'
       }`}
     >
@@ -55,7 +64,7 @@ export function ProblemCard({ item }: { readonly item: ContentItem }) {
         <div className="flex items-center gap-2 border-b border-[var(--color-border)] px-3 py-2.5">
           <button
             type="button"
-            onClick={() => setInQuestions(false)}
+            onClick={() => onQuestionsChange(false)}
             className="flex items-center gap-1 text-[13px] text-[var(--color-text-muted)] transition-colors duration-100 hover:text-[var(--color-text)]"
           >
             <ChevronLeft size={16} />
@@ -71,9 +80,10 @@ export function ProblemCard({ item }: { readonly item: ContentItem }) {
       {inQuestions ? (
         <McqController
           item={item}
+          active={active}
           inQuestions
-          onEnterQuestions={() => setInQuestions(true)}
-          onNoSet={() => setInQuestions(false)}
+          onEnterQuestions={() => onQuestionsChange(true)}
+          onNoSet={() => onQuestionsChange(false)}
         />
       ) : (
         <div className="relative min-h-0">
@@ -81,7 +91,11 @@ export function ProblemCard({ item }: { readonly item: ContentItem }) {
           <div
             ref={bodyRef}
             onScroll={measureBody}
-            className="no-scrollbar h-full overflow-y-auto overscroll-y-contain px-4 pb-10"
+            className="no-scrollbar h-full overflow-y-auto px-4 pb-10"
+            // Scrolled by the feed's pager, not by the browser: a native pan
+            // here would claim the pointer and cancel it, and the handover at
+            // the end of a long description depends on keeping it.
+            style={{ touchAction: 'none' }}
           >
             <ProblemHeader item={item} />
             <ProblemBody html={item.body_html} format={item.body_format} />
@@ -103,9 +117,10 @@ export function ProblemCard({ item }: { readonly item: ContentItem }) {
       {!inQuestions && (
         <McqController
           item={item}
+          active={active}
           inQuestions={false}
-          onEnterQuestions={() => setInQuestions(true)}
-          onNoSet={() => setInQuestions(false)}
+          onEnterQuestions={() => onQuestionsChange(true)}
+          onNoSet={() => onQuestionsChange(false)}
         />
       )}
     </article>

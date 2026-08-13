@@ -228,6 +228,10 @@ body {
   overflow-x: auto;
   white-space: pre-wrap;
   word-break: break-word;
+  /* Wrapped content never overflows sideways, so this is not a pan surface.
+     Left as `auto`, the browser claims the pointer for a horizontal pan and
+     cancels it, swallowing the swipe that pages the feed. */
+  touch-action: pan-y;
 }
 
 /* LeetCode nests <code> inside <pre> for example blocks; avoid double chrome. */

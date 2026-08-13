@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 /**
- * The paging engine behind both feed axes: vertical cards and the horizontal
- * MCQ strip.
+ * The paging engine behind the card feed and the MCQ strip, both of which page
+ * horizontally.
  *
  * Native scroll-snap is deliberately not used. Its momentum belongs to the
  * browser and no two agree — a trackpad flick in Chrome crosses several snap
@@ -16,8 +16,11 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 /** Commit when the release leaves more than half the next page showing. */
 const COMMIT_RATIO = 0.5;
 /** ...or when the finger was still moving this fast (px/ms) at release, so a
- *  short flick commits without having to cross the halfway mark. */
-const FLICK_VELOCITY = 0.5;
+ *  deliberate flick commits without having to cross the halfway mark. */
+const FLICK_VELOCITY = 1.2;
+/** A flick must also travel this share of the page. Speed alone is not intent:
+ *  a quick nudge while reading clears any velocity bar worth setting. */
+const FLICK_MIN_RATIO = 0.15;
 /** Velocity is measured over the tail of the gesture, not its whole length: a
  *  slow drag that ends in a flick should read as a flick. */
 const VELOCITY_WINDOW_MS = 100;
@@ -44,7 +47,7 @@ export type Axis = 'x' | 'y';
 
 /**
  * Finds the scroller, if any, that a gesture starting at `target` should drive
- * before the pager does. `boundary` is the pager's own root, where the search
+ * instead of the pager. `boundary` is the pager's own root, where the search
  * stops.
  */
 export type InnerScrollerLookup = (
@@ -57,11 +60,17 @@ type Options = {
   readonly count: number;
   readonly index: number;
   readonly onIndexChange: (index: number) => void;
-  /** Page extent in px — card height for the feed, panel width for the strip. */
+  /** Page extent in px — card width for the feed, panel width for the strip. */
   readonly pageSize: number;
   /** False while a sheet or dialog owns input. */
   readonly enabled?: boolean;
   readonly innerScroller?: InnerScrollerLookup;
+  /** Axis the inner scroller moves on. Defaults to the pager's own; the feed
+   *  passes the perpendicular one, its descriptions scrolling across its axis. */
+  readonly innerAxis?: Axis;
+  /** Keep gestures from reaching an enclosing pager on the same axis. The MCQ
+   *  strip sets this: inside the questions view, sideways means panel, not card. */
+  readonly isolate?: boolean;
 };
 
 export type Pager = {
@@ -106,7 +115,10 @@ export function usePager({
   pageSize,
   enabled = true,
   innerScroller,
+  innerAxis = axis,
+  isolate = false,
 }: Options): Pager {
+  const crossInner = innerAxis !== axis;
   const [drag, setDrag] = useState(0);
   const [dragging, setDragging] = useState(false);
   const dragRef = useRef<Drag | null>(null);
@@ -116,9 +128,9 @@ export function usePager({
   // listeners that must not be torn down and rebuilt on each index change, and
   // the pointer path reads it mid-gesture where a stale closure would commit
   // against the wrong page size.
-  const live = useRef({ index, count, pageSize, enabled, onIndexChange, innerScroller });
+  const live = useRef({ index, count, pageSize, enabled, onIndexChange, innerScroller, crossInner });
   useEffect(() => {
-    live.current = { index, count, pageSize, enabled, onIndexChange, innerScroller };
+    live.current = { index, count, pageSize, enabled, onIndexChange, innerScroller, crossInner };
   });
 
   const goTo = useCallback((next: number) => {
@@ -173,6 +185,9 @@ export function usePager({
   useEffect(() => stopMomentum, [stopMomentum]);
 
   const onPointerDown = useCallback((e: React.PointerEvent) => {
+    // Claimed before any early return, so an enclosing pager on this axis never
+    // sees the gesture even when this one declines it.
+    if (isolate) e.stopPropagation();
     if (!live.current.enabled || dragRef.current) return;
     // Touching a coasting scroller catches it, as it would natively.
     stopMomentum();
@@ -190,40 +205,59 @@ export function usePager({
       claimed: null,
       delta: 0,
     };
-  }, [axis, stopMomentum]);
+  }, [axis, isolate, stopMomentum]);
 
   const onPointerMove = useCallback((e: React.PointerEvent) => {
     const active = dragRef.current;
     if (!active || active.id !== e.pointerId) return;
 
-    const { index: at, count: n } = live.current;
+    const { index: at, count: n, crossInner: perpendicular } = live.current;
     const pos = axis === 'y' ? e.clientY : e.clientX;
+    const crossPos = axis === 'y' ? e.clientX : e.clientY;
     const main = pos - active.startMain;
-    const cross = (axis === 'y' ? e.clientX : e.clientY) - active.startCross;
+    const cross = crossPos - active.startCross;
 
     if (active.claimed === null) {
       if (Math.abs(main) < DIRECTION_SLOP && Math.abs(cross) < DIRECTION_SLOP) return;
-      // A mostly-perpendicular gesture never becomes a page change, and once
-      // rejected on that basis it stays rejected for the rest of the gesture.
-      if (Math.abs(cross) > Math.abs(main)) {
+      // Which axis the finger actually chose: the pager's, or the one across it.
+      const sideways = Math.abs(cross) > Math.abs(main);
+      // The scroller only wants gestures running along the axis it scrolls on,
+      // which for a perpendicular one is the pager's cross axis. Consulted only
+      // then, and only if it can still move: a description that scrolls
+      // vertically must not swallow the sideways swipe that pages the feed.
+      // A gesture it does claim is its for the whole stroke.
+      const forScroller = perpendicular ? sideways : !sideways;
+      active.inner = forScroller
+        ? (live.current.innerScroller?.(e.target, nodeRef.current) ?? null)
+        : null;
+
+      // A cross-axis gesture that no scroller wants is not this pager's, and
+      // once rejected it stays rejected for the rest of the gesture.
+      if (!active.inner && sideways) {
         active.claimed = false;
         return;
       }
-      // A gesture that starts over a scroller belongs to it for its whole
-      // length, whether or not it reaches an end: paging from there would
-      // move the card out from under someone who is still reading.
-      active.inner = live.current.innerScroller?.(e.target, nodeRef.current) ?? null;
       active.claimed = true;
       setDragging(!active.inner);
+      // A cross-axis scroll measures the other coordinate, so its history has
+      // to start from that one rather than from the axis it never moved along.
+      if (active.inner && perpendicular) {
+        active.lastPos = crossPos;
+        active.samples.length = 0;
+        active.samples.push({ t: e.timeStamp, pos: crossPos });
+      }
       // Capture so a fast drag leaving the element still delivers its pointerup
       // here, rather than stranding the page mid-transition.
       e.currentTarget.setPointerCapture(e.pointerId);
     }
     if (!active.claimed) return;
 
+    // An inner scroller on the perpendicular axis tracks the cross coordinate,
+    // and everything downstream — momentum included — measures it there.
+    const along = active.inner && perpendicular ? crossPos : pos;
     const prev = active.lastPos;
-    active.lastPos = pos;
-    active.samples.push({ t: e.timeStamp, pos });
+    active.lastPos = along;
+    active.samples.push({ t: e.timeStamp, pos: along });
     while (active.samples.length > 2 && e.timeStamp - active.samples[0].t > VELOCITY_WINDOW_MS) {
       active.samples.shift();
     }
@@ -231,7 +265,7 @@ export function usePager({
     // The scroller is driven from here rather than by the browser, which would
     // otherwise claim the pointer and cancel it on the first native pan.
     if (active.inner) {
-      active.inner[axis === 'y' ? 'scrollTop' : 'scrollLeft'] -= pos - prev;
+      active.inner[innerAxis === 'y' ? 'scrollTop' : 'scrollLeft'] -= along - prev;
       return;
     }
 
@@ -240,7 +274,7 @@ export function usePager({
     const blocked = (main > 0 && at === 0) || (main < 0 && at === n - 1);
     active.delta = blocked ? main * EDGE_FRICTION : main;
     setDrag(active.delta);
-  }, [axis]);
+  }, [axis, innerAxis]);
 
   const onPointerUp = useCallback((e: React.PointerEvent) => {
     const active = dragRef.current;
@@ -257,7 +291,7 @@ export function usePager({
     // A scroller keeps its own gesture, so releasing over one coasts it rather
     // than paging.
     if (inner) {
-      if (Math.abs(velocity) >= MOMENTUM_MIN_VELOCITY) flingInner(inner, velocity, axis);
+      if (Math.abs(velocity) >= MOMENTUM_MIN_VELOCITY) flingInner(inner, velocity, innerAxis);
       return;
     }
     if (delta === 0) return;
@@ -266,12 +300,15 @@ export function usePager({
     // never got there, which is what a short fast swipe expects to do.
     // A flick only commits in the direction it was already travelling; a drag
     // reversed at the last moment must not throw the page the other way.
-    const flicked = Math.abs(velocity) >= FLICK_VELOCITY && Math.sign(velocity) === Math.sign(delta);
+    const flicked =
+      Math.abs(velocity) >= FLICK_VELOCITY &&
+      Math.abs(delta) > size * FLICK_MIN_RATIO &&
+      Math.sign(velocity) === Math.sign(delta);
 
     if (Math.abs(delta) > size * COMMIT_RATIO || flicked) {
       goTo(at + (delta < 0 ? 1 : -1));
     }
-  }, [axis, cancelDrag, flingInner, goTo]);
+  }, [innerAxis, cancelDrag, flingInner, goTo]);
 
   /**
    * Wheel and trackpad.
@@ -293,15 +330,22 @@ export function usePager({
       if (!live.current.enabled) return;
       const main = axis === 'y' ? e.deltaY : e.deltaX;
       const cross = axis === 'y' ? e.deltaX : e.deltaY;
-      if (Math.abs(main) <= Math.abs(cross)) return;
 
       // A wheel over a scroller is that scroller's, at its ends as much as in
       // the middle; the browser scrolls it natively. The accumulator resets
-      // so delta spent reading never counts toward a later page change.
-      if (live.current.innerScroller?.(e.target, node)) {
+      // so delta spent reading never counts toward a later page change. A
+      // scroller on the perpendicular axis only claims perpendicular deltas.
+      const scroller = live.current.innerScroller?.(e.target, node);
+      if (scroller && (live.current.crossInner ? Math.abs(cross) > Math.abs(main) : true)) {
         wheel.accum = 0;
         return;
       }
+      if (Math.abs(main) <= Math.abs(cross)) return;
+
+      // An enclosing pager on this axis must not page as well. Claimed here
+      // whether or not the accumulator has filled, so the deltas leading up to
+      // a page change never leak outward either.
+      if (isolate) e.stopPropagation();
 
       // This axis is driven here, so the browser must not scroll it as well.
       e.preventDefault();
@@ -325,7 +369,7 @@ export function usePager({
       node.removeEventListener('wheel', onWheel);
       window.clearTimeout(wheel.timer);
     };
-  }, [axis, goTo]);
+  }, [axis, goTo, isolate]);
 
   // A resize mid-drag would leave the offset measured against the old page
   // size, so the gesture is abandoned rather than corrected.

@@ -36,7 +36,7 @@ export function FeedSkeleton() {
         </div>
       </div>
 
-      <div className="border-t border-[var(--color-border)] px-4 py-6">
+      <div className="border-t border-[var(--color-border)] px-4 py-3">
         <Skeleton className="h-10 w-full" />
       </div>
     </div>

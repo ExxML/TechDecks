@@ -53,12 +53,12 @@ export function ProblemFeed({ initialItems, initialCursor }: Props) {
     loadingRef.current = loading;
   }, [cursor, loading]);
 
-  // The card height in px. Measured rather than computed from 100dvh: the pager
-  // works in pixels, and dvh resolves differently while mobile chrome animates.
+  // The card width in px. Measured rather than taken from the viewport: the
+  // pager works in pixels, and this is the one number the track depends on.
   useEffect(() => {
     const el = rootRef.current;
     if (!el) return;
-    const measure = () => setPageSize(el.clientHeight);
+    const measure = () => setPageSize(el.clientWidth);
     measure();
     const observer = new ResizeObserver(measure);
     observer.observe(el);
@@ -102,39 +102,35 @@ export function ProblemFeed({ initialItems, initialCursor }: Props) {
     }
   }, [active, items]);
 
+  // Descriptions scroll vertically inside a horizontally paged feed, so the
+  // gesture's own direction decides which of the two it drives.
   const innerScroller = useMemo(() => innerScrollerOn('y'), []);
 
   const pager = usePager({
-    axis: 'y',
+    axis: 'x',
     count: items.length,
     index: active,
     onIndexChange: setActive,
     pageSize,
     innerScroller,
+    innerAxis: 'y',
   });
 
-  // Arrow keys, PageUp/PageDown and Home/End. Native scroll-snap used to supply
-  // these for free; driving the track ourselves means supplying them ourselves.
-  // Left/Right are the MCQ strip's and are not touched here.
+  // Left/Right page the feed; the vertical keys belong to the description, and
+  // are left to the browser once it has focus. A card showing its questions
+  // yields Left/Right to the strip, which steps panels with them.
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (shouldIgnoreShortcut(e)) return;
-      const keys: Record<string, number> = {
-        ArrowDown: active + 1,
-        ArrowUp: active - 1,
-        PageDown: active + 1,
-        PageUp: active - 1,
-        Home: 0,
-        End: items.length - 1,
-      };
-      const target = keys[e.key];
-      if (target === undefined) return;
+      if (questionCards.has(items[active]?.id ?? '')) return;
+      const step = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;
+      if (!step) return;
       e.preventDefault();
-      pager.goTo(target);
+      pager.goTo(active + step);
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [active, items.length, pager]);
+  }, [active, items, questionCards, pager]);
 
   const setInQuestions = useCallback((id: string, on: boolean) => {
     setQuestionCards((prev) => {
@@ -163,17 +159,16 @@ export function ProblemFeed({ initialItems, initialCursor }: Props) {
       aria-label="Problem feed"
       aria-roledescription="carousel"
       className="relative h-[calc(100dvh-48px)] overflow-hidden focus:outline-none"
-      // The pager owns every vertical gesture in here, including the ones it
+      // The pager owns every gesture in here, including the vertical ones it
       // forwards to a description. A native pan would claim the pointer and
-      // cancel it, which is exactly what makes the handover at the end of a
-      // description impossible.
+      // cancel it, leaving the gesture stranded mid-card.
       style={{ touchAction: 'none' }}
       {...pager.handlers}
     >
       <div
-        className="absolute inset-x-0 top-0 will-change-transform"
+        className="absolute inset-y-0 left-0 will-change-transform"
         style={{
-          transform: `translate3d(0, ${pager.offset}px, 0)`,
+          transform: `translate3d(${pager.offset}px, 0, 0)`,
           // No transition while the finger is down: the card tracks the drag.
           transition: pager.dragging ? 'none' : 'transform 260ms cubic-bezier(0.22, 1, 0.36, 1)',
         }}
@@ -183,8 +178,8 @@ export function ProblemFeed({ initialItems, initialCursor }: Props) {
         {window_.map((item, i) => (
           <div
             key={item.id}
-            className="absolute inset-x-0"
-            style={{ top: (first + i) * pageSize, height: pageSize }}
+            className="absolute inset-y-0"
+            style={{ left: (first + i) * pageSize, width: pageSize }}
             aria-hidden={first + i !== active}
           >
             <ProblemCard
@@ -198,8 +193,8 @@ export function ProblemFeed({ initialItems, initialCursor }: Props) {
 
         {loading && (
           <div
-            className="absolute inset-x-0 flex flex-col gap-3 p-4"
-            style={{ top: items.length * pageSize, height: pageSize }}
+            className="absolute inset-y-0 flex flex-col gap-3 p-4"
+            style={{ left: items.length * pageSize, width: pageSize }}
             aria-hidden="true"
           >
             <Skeleton className="h-6 w-3/4" />

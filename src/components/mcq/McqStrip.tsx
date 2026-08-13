@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { McqPanel } from './McqPanel';
 import { McqSummary } from './McqSummary';
 import { McqStepper } from './McqStepper';
 import { usePager } from '@/lib/pager';
+import { innerScrollerOn } from '@/lib/scrollYield';
 import { shouldIgnoreShortcut } from '@/lib/keyboard';
 import type { McqSet } from '@/lib/mcq/store';
 
@@ -51,8 +52,10 @@ export function McqStrip({ set, grounded, active, onAnswer, onRetry, onRegenerat
     return () => observer.disconnect();
   }, []);
 
-  // Panels only ever scroll vertically, so nothing inside the strip competes
-  // for the horizontal axis and there is no inner scroller to forward to.
+  // Panels scroll vertically across the strip's own axis, and the strip keeps
+  // every gesture inside it, so it forwards them rather than the feed.
+  const innerScroller = useMemo(() => innerScrollerOn('y'), []);
+
   const pager = usePager({
     axis: 'x',
     count: panelCount,
@@ -60,6 +63,11 @@ export function McqStrip({ set, grounded, active, onAnswer, onRetry, onRegenerat
     onIndexChange: setPanel,
     pageSize,
     enabled: active,
+    innerScroller,
+    innerAxis: 'y',
+    // The feed pages on the same axis: inside the questions view, sideways
+    // means panel, not card.
+    isolate: true,
   });
 
   const answeredFlags = set.questions.map((_, i) => (set.answers[i] ?? null) !== null);
@@ -128,8 +136,7 @@ export function McqStrip({ set, grounded, active, onAnswer, onRetry, onRegenerat
           pager.ref(node);
         }}
         className="relative min-h-0 overflow-hidden"
-        // This pager owns the horizontal axis and the feed's owns the vertical
-        // one, so no gesture in here is ever the browser's.
+        // No gesture in here is ever the browser's.
         style={{ touchAction: 'none' }}
         {...pager.handlers}
       >

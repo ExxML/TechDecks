@@ -55,7 +55,7 @@ export function ProblemCard({ item, active, inQuestions, onQuestionsChange }: Pr
   return (
     <article
       data-slug={item.slug}
-      className={`grid h-full w-full border-b border-[var(--color-border)] bg-[var(--color-bg)] ${
+      className={`grid h-full w-full border-r border-[var(--color-border)] bg-[var(--color-bg)] ${
         inQuestions ? 'grid-rows-[auto_1fr]' : 'grid-rows-[1fr_auto]'
       }`}
     >
@@ -93,8 +93,8 @@ export function ProblemCard({ item, active, inQuestions, onQuestionsChange }: Pr
             onScroll={measureBody}
             className="no-scrollbar h-full overflow-y-auto px-4 pb-10"
             // Scrolled by the feed's pager, not by the browser: a native pan
-            // here would claim the pointer and cancel it, and the handover at
-            // the end of a long description depends on keeping it.
+            // would claim the pointer on the first vertical move and cancel it,
+            // taking the card's own swipes down with it.
             style={{ touchAction: 'none' }}
           >
             <ProblemHeader item={item} />

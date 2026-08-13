@@ -30,6 +30,15 @@ const WHEEL_THRESHOLD = 40;
 const WHEEL_IDLE_MS = 150;
 /** Below this the gesture is still ambiguous, so neither axis claims it. */
 const DIRECTION_SLOP = 8;
+/** Momentum decay per frame for a flung inner scroller, at 60fps. Touch
+ *  scrolling is driven here, so the coast after release is ours to supply. */
+const MOMENTUM_DECAY = 0.95;
+/** Below this speed (px/ms) the coast is over; running it to zero wastes
+ *  frames on movement too small to see. */
+const MOMENTUM_MIN_VELOCITY = 0.02;
+/** Ceiling on release speed. A thumb tops out near 4 px/ms; anything above is
+ *  a synthetic or coalesced event, and would fling the whole description. */
+const MOMENTUM_MAX_VELOCITY = 4;
 
 export type Axis = 'x' | 'y';
 
@@ -124,8 +133,49 @@ export function usePager({
     setDrag(0);
   }, []);
 
+  // Momentum for an inner scroller after the finger lifts. The browser would
+  // normally supply this, but touch scrolling is driven from here, so the coast
+  // is ours to animate too.
+  const momentumRef = useRef(0);
+
+  const stopMomentum = useCallback(() => {
+    cancelAnimationFrame(momentumRef.current);
+    momentumRef.current = 0;
+  }, []);
+
+  const flingInner = useCallback((el: HTMLElement, velocity: number, axis: Axis) => {
+    const prop = axis === 'y' ? 'scrollTop' : 'scrollLeft';
+    const extent =
+      axis === 'y' ? el.scrollHeight - el.clientHeight : el.scrollWidth - el.clientWidth;
+    // Velocity is px/ms toward the finger; the content moves the other way.
+    let v = -Math.sign(velocity) * Math.min(Math.abs(velocity), MOMENTUM_MAX_VELOCITY);
+    let last = 0;
+
+    const step = (now: number) => {
+      // First frame establishes the clock rather than integrating against 0.
+      const dt = last ? now - last : 16;
+      last = now;
+      const before = el[prop];
+      el[prop] = Math.max(0, Math.min(extent, before + v * dt));
+      // Decay is per 60fps frame, so a slow frame decays proportionally more.
+      v *= Math.pow(MOMENTUM_DECAY, dt / 16);
+      // Stop at the ends: coasting into a wall should not keep burning frames.
+      if (Math.abs(v) < MOMENTUM_MIN_VELOCITY || el[prop] === before) {
+        momentumRef.current = 0;
+        return;
+      }
+      momentumRef.current = requestAnimationFrame(step);
+    };
+
+    momentumRef.current = requestAnimationFrame(step);
+  }, []);
+
+  useEffect(() => stopMomentum, [stopMomentum]);
+
   const onPointerDown = useCallback((e: React.PointerEvent) => {
     if (!live.current.enabled || dragRef.current) return;
+    // Touching a coasting scroller catches it, as it would natively.
+    stopMomentum();
     // A mouse drag is not a paging gesture: the wheel is the desktop input, and
     // paging on drag would make text unselectable in the description.
     if (e.pointerType === 'mouse') return;
@@ -140,7 +190,7 @@ export function usePager({
       claimed: null,
       delta: 0,
     };
-  }, [axis]);
+  }, [axis, stopMomentum]);
 
   const onPointerMove = useCallback((e: React.PointerEvent) => {
     const active = dragRef.current;
@@ -171,19 +221,18 @@ export function usePager({
     }
     if (!active.claimed) return;
 
-    // The scroller is driven from here rather than by the browser, which would
-    // otherwise claim the pointer and cancel it on the first native pan.
-    if (active.inner) {
-      const prop = axis === 'y' ? 'scrollTop' : 'scrollLeft';
-      active.inner[prop] -= pos - active.lastPos;
-      active.lastPos = pos;
-      return;
-    }
+    const prev = active.lastPos;
     active.lastPos = pos;
-
     active.samples.push({ t: e.timeStamp, pos });
     while (active.samples.length > 2 && e.timeStamp - active.samples[0].t > VELOCITY_WINDOW_MS) {
       active.samples.shift();
+    }
+
+    // The scroller is driven from here rather than by the browser, which would
+    // otherwise claim the pointer and cancel it on the first native pan.
+    if (active.inner) {
+      active.inner[axis === 'y' ? 'scrollTop' : 'scrollLeft'] -= pos - prev;
+      return;
     }
 
     // At either end the page cannot move, so the drag is damped rather than
@@ -197,15 +246,24 @@ export function usePager({
     const active = dragRef.current;
     if (!active || active.id !== e.pointerId) return;
     const { index: at, pageSize: size } = live.current;
-    const { claimed, delta, samples } = active;
+    const { claimed, delta, samples, inner } = active;
     cancelDrag();
-    if (!claimed || delta === 0) return;
+    if (!claimed) return;
 
-    // Distance OR velocity: past halfway commits, and so does a flick that
-    // never got there, which is what a short fast swipe expects to do.
     const first = samples[0];
     const span = first ? e.timeStamp - first.t : 0;
     const velocity = span > 0 ? (active.lastPos - first.pos) / span : 0;
+
+    // A scroller keeps its own gesture, so releasing over one coasts it rather
+    // than paging.
+    if (inner) {
+      if (Math.abs(velocity) >= MOMENTUM_MIN_VELOCITY) flingInner(inner, velocity, axis);
+      return;
+    }
+    if (delta === 0) return;
+
+    // Distance OR velocity: past halfway commits, and so does a flick that
+    // never got there, which is what a short fast swipe expects to do.
     // A flick only commits in the direction it was already travelling; a drag
     // reversed at the last moment must not throw the page the other way.
     const flicked = Math.abs(velocity) >= FLICK_VELOCITY && Math.sign(velocity) === Math.sign(delta);
@@ -213,7 +271,7 @@ export function usePager({
     if (Math.abs(delta) > size * COMMIT_RATIO || flicked) {
       goTo(at + (delta < 0 ? 1 : -1));
     }
-  }, [cancelDrag, goTo]);
+  }, [axis, cancelDrag, flingInner, goTo]);
 
   /**
    * Wheel and trackpad.

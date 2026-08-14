@@ -33,7 +33,7 @@ export function TabBar() {
             key={href}
             href={href}
             aria-current={active ? 'page' : undefined}
-            className="flex flex-1 flex-col items-center justify-center gap-0.5 transition-colors duration-100"
+            className="flex flex-1 flex-col items-center justify-center gap-1 transition-colors duration-100"
             style={{ color: active ? 'var(--color-accent)' : 'var(--color-text-muted)' }}
           >
             <Icon size={16} strokeWidth={2} aria-hidden="true" />

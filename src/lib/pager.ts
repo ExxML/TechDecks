@@ -155,6 +155,42 @@ export function usePager({
     momentumRef.current = 0;
   }, []);
 
+  // Drag scrolling, coalesced to the frame clock. Pointer events fire at the
+  // digitiser's rate — several per frame, or none — so their deltas are banked
+  // here and flushed once per frame, giving one even step per repaint.
+  const pendingRef = useRef<{ el: HTMLElement; delta: number; frame: number } | null>(null);
+
+  const scrollBy = useCallback(
+    (el: HTMLElement, delta: number) => {
+      const prop = innerAxis === 'y' ? 'scrollTop' : 'scrollLeft';
+      const pending = pendingRef.current;
+      if (pending && pending.el === el) {
+        pending.delta += delta;
+        return;
+      }
+      // A different element mid-gesture: flush the old one rather than drop it.
+      if (pending) {
+        cancelAnimationFrame(pending.frame);
+        pending.el[innerAxis === 'y' ? 'scrollTop' : 'scrollLeft'] -= pending.delta;
+      }
+      const entry: { el: HTMLElement; delta: number; frame: number } = { el, delta, frame: 0 };
+      entry.frame = requestAnimationFrame(() => {
+        pendingRef.current = null;
+        el[prop] -= entry.delta;
+      });
+      pendingRef.current = entry;
+    },
+    [innerAxis],
+  );
+
+  const flushScroll = useCallback(() => {
+    const pending = pendingRef.current;
+    if (!pending) return;
+    cancelAnimationFrame(pending.frame);
+    pendingRef.current = null;
+    pending.el[innerAxis === 'y' ? 'scrollTop' : 'scrollLeft'] -= pending.delta;
+  }, [innerAxis]);
+
   const flingInner = useCallback((el: HTMLElement, velocity: number, axis: Axis) => {
     const prop = axis === 'y' ? 'scrollTop' : 'scrollLeft';
     const extent =
@@ -162,17 +198,25 @@ export function usePager({
     // Velocity is px/ms toward the finger; the content moves the other way.
     let v = -Math.sign(velocity) * Math.min(Math.abs(velocity), MOMENTUM_MAX_VELOCITY);
     let last = 0;
+    // The coast owns the scroller for its duration, so position is carried in a
+    // float here: reading scrollTop back each frame would force a synchronous
+    // layout, and its integer rounding would swallow sub-pixel steps at low
+    // speed, stalling the tail of the animation.
+    let at = el[prop];
 
     const step = (now: number) => {
       // First frame establishes the clock rather than integrating against 0.
       const dt = last ? now - last : 16;
       last = now;
-      const before = el[prop];
-      el[prop] = Math.max(0, Math.min(extent, before + v * dt));
+      const before = at;
+      at = Math.max(0, Math.min(extent, at + v * dt));
+      el[prop] = at;
       // Decay is per 60fps frame, so a slow frame decays proportionally more.
       v *= Math.pow(MOMENTUM_DECAY, dt / 16);
-      // Stop at the ends: coasting into a wall should not keep burning frames.
-      if (Math.abs(v) < MOMENTUM_MIN_VELOCITY || el[prop] === before) {
+      // Stop below a visible step, or on hitting an end: a coast that no longer
+      // moves a whole pixel per frame is finished, and one pinned against a
+      // wall should not keep burning frames.
+      if (Math.abs(v) < MOMENTUM_MIN_VELOCITY || Math.abs(at - before) < 1) {
         momentumRef.current = 0;
         return;
       }
@@ -182,7 +226,14 @@ export function usePager({
     momentumRef.current = requestAnimationFrame(step);
   }, []);
 
-  useEffect(() => stopMomentum, [stopMomentum]);
+  useEffect(
+    () => () => {
+      stopMomentum();
+      const pending = pendingRef.current;
+      if (pending) cancelAnimationFrame(pending.frame);
+    },
+    [stopMomentum],
+  );
 
   const onPointerDown = useCallback((e: React.PointerEvent) => {
     // Claimed before any early return, so an enclosing pager on this axis never
@@ -263,9 +314,13 @@ export function usePager({
     }
 
     // The scroller is driven from here rather than by the browser, which would
-    // otherwise claim the pointer and cancel it on the first native pan.
+    // otherwise claim the pointer and cancel it on the first native pan. The
+    // write is deferred to the next frame: pointer events arrive at their own
+    // rate, often several per frame or straddling two, and writing scrollTop
+    // inside the handler moves the content on the pointer's clock instead of
+    // the display's — which reads as jitter.
     if (active.inner) {
-      active.inner[innerAxis === 'y' ? 'scrollTop' : 'scrollLeft'] -= along - prev;
+      scrollBy(active.inner, along - prev);
       return;
     }
 
@@ -274,7 +329,7 @@ export function usePager({
     const blocked = (main > 0 && at === 0) || (main < 0 && at === n - 1);
     active.delta = blocked ? main * EDGE_FRICTION : main;
     setDrag(active.delta);
-  }, [axis, innerAxis]);
+  }, [axis, scrollBy]);
 
   const onPointerUp = useCallback((e: React.PointerEvent) => {
     const active = dragRef.current;
@@ -293,8 +348,10 @@ export function usePager({
     const velocity = span > 0 ? (endPos - first.pos) / span : 0;
 
     // A scroller keeps its own gesture, so releasing over one coasts it rather
-    // than paging.
+    // than paging. The last banked frame lands first, so the coast starts from
+    // where the finger actually left off.
     if (inner) {
+      flushScroll();
       if (Math.abs(velocity) >= MOMENTUM_MIN_VELOCITY) flingInner(inner, velocity, innerAxis);
       return;
     }
@@ -312,7 +369,7 @@ export function usePager({
     if (Math.abs(delta) > size * COMMIT_RATIO || flicked) {
       goTo(at + (delta < 0 ? 1 : -1));
     }
-  }, [axis, innerAxis, cancelDrag, flingInner, goTo]);
+  }, [axis, innerAxis, cancelDrag, flingInner, flushScroll, goTo]);
 
   /**
    * Wheel and trackpad.

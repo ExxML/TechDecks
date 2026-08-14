@@ -17,10 +17,10 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 const COMMIT_RATIO = 0.5;
 /** ...or when the finger was still moving this fast (px/ms) at release, so a
  *  deliberate flick commits without having to cross the halfway mark. */
-const FLICK_VELOCITY = 1.2;
+const FLICK_VELOCITY = 0.4;
 /** A flick must also travel this share of the page. Speed alone is not intent:
  *  a quick nudge while reading clears any velocity bar worth setting. */
-const FLICK_MIN_RATIO = 0.15;
+const FLICK_MIN_RATIO = 0.06;
 /** Velocity is measured over the tail of the gesture, not its whole length: a
  *  slow drag that ends in a flick should read as a flick. */
 const VELOCITY_WINDOW_MS = 100;
@@ -35,7 +35,7 @@ const WHEEL_IDLE_MS = 150;
 const DIRECTION_SLOP = 8;
 /** Momentum decay per frame for a flung inner scroller, at 60fps. Touch
  *  scrolling is driven here, so the coast after release is ours to supply. */
-const MOMENTUM_DECAY = 0.95;
+const MOMENTUM_DECAY = 0.968;
 /** Below this speed (px/ms) the coast is over; running it to zero wastes
  *  frames on movement too small to see. */
 const MOMENTUM_MIN_VELOCITY = 0.02;
@@ -285,8 +285,12 @@ export function usePager({
     if (!claimed) return;
 
     const first = samples[0];
+    const pos = axis === 'y' ? e.clientY : e.clientX;
+    const crossPos = axis === 'y' ? e.clientX : e.clientY;
+    const along = inner && live.current.crossInner ? crossPos : pos;
+    const endPos = e.type === 'pointercancel' ? active.lastPos : along;
     const span = first ? e.timeStamp - first.t : 0;
-    const velocity = span > 0 ? (active.lastPos - first.pos) / span : 0;
+    const velocity = span > 0 ? (endPos - first.pos) / span : 0;
 
     // A scroller keeps its own gesture, so releasing over one coasts it rather
     // than paging.
@@ -308,7 +312,7 @@ export function usePager({
     if (Math.abs(delta) > size * COMMIT_RATIO || flicked) {
       goTo(at + (delta < 0 ? 1 : -1));
     }
-  }, [innerAxis, cancelDrag, flingInner, goTo]);
+  }, [axis, innerAxis, cancelDrag, flingInner, goTo]);
 
   /**
    * Wheel and trackpad.

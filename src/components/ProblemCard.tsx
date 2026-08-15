@@ -23,9 +23,8 @@ type Props = {
  * (scrollable body carrying the problem header, then the action bar) and
  * Questions (one-line title bar, then the MCQ strip).
  *
- * The body is an ordinary scroller. The feed's pager hands it any gesture it
- * can still act on and takes the gesture back at its ends, so a long
- * description reads normally and never traps the reader on the card.
+ * The body is an ordinary scroller, panned by the browser. Paging is the
+ * perpendicular axis, so a long description never traps the reader on the card.
  */
 export function ProblemCard({ item, active, inQuestions, onQuestionsChange }: Props) {
   // The fade only means "more below", so it must vanish at the end of the body
@@ -91,11 +90,11 @@ export function ProblemCard({ item, active, inQuestions, onQuestionsChange }: Pr
           <div
             ref={bodyRef}
             onScroll={measureBody}
-            className="no-scrollbar h-full overflow-y-auto px-4 pb-10"
-            // Scrolled by the feed's pager, not by the browser: a native pan
-            // would claim the pointer on the first vertical move and cancel it,
-            // taking the card's own swipes down with it.
-            style={{ touchAction: 'none' }}
+            className="no-scrollbar h-full overflow-y-auto overscroll-y-contain px-4 pb-10"
+            // The browser owns vertical panning here, so reading a description
+            // runs on the compositor with native momentum. Horizontal is left
+            // to the feed's pager, which pages cards on that axis.
+            style={{ touchAction: 'pan-y' }}
           >
             <ProblemHeader item={item} />
             <ProblemBody html={item.body_html} format={item.body_format} />

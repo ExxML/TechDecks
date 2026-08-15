@@ -1,11 +1,10 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { McqPanel } from './McqPanel';
 import { McqSummary } from './McqSummary';
 import { McqStepper } from './McqStepper';
 import { usePager } from '@/lib/pager';
-import { innerScrollerOn } from '@/lib/scrollYield';
 import { shouldIgnoreShortcut } from '@/lib/keyboard';
 import type { McqSet } from '@/lib/mcq/store';
 
@@ -25,11 +24,11 @@ type Props = {
 };
 
 /**
- * One panel per question plus a summary, paged horizontally against the feed's
- * vertical paging. Panel count comes from the set; nothing assumes 4.
+ * One panel per question plus a summary. Panel count comes from the set;
+ * nothing assumes 4.
  *
- * Shares `usePager` with the feed, so a horizontal trackpad flick moves exactly
- * one panel for the same reason a vertical one moves exactly one card.
+ * Shares `usePager` with the feed and pages on the same axis, so it isolates
+ * its gestures: inside the questions view, sideways means panel, not card.
  */
 export function McqStrip({ set, grounded, active, onAnswer, onRetry, onRegenerate, onExit }: Props) {
   const rootRef = useRef<HTMLDivElement>(null);
@@ -52,10 +51,6 @@ export function McqStrip({ set, grounded, active, onAnswer, onRetry, onRegenerat
     return () => observer.disconnect();
   }, []);
 
-  // Panels scroll vertically across the strip's own axis, and the strip keeps
-  // every gesture inside it, so it forwards them rather than the feed.
-  const innerScroller = useMemo(() => innerScrollerOn('y'), []);
-
   const pager = usePager({
     axis: 'x',
     count: panelCount,
@@ -63,8 +58,6 @@ export function McqStrip({ set, grounded, active, onAnswer, onRetry, onRegenerat
     onIndexChange: setPanel,
     pageSize,
     enabled: active,
-    innerScroller,
-    innerAxis: 'y',
     // The feed pages on the same axis: inside the questions view, sideways
     // means panel, not card.
     isolate: true,
@@ -136,7 +129,8 @@ export function McqStrip({ set, grounded, active, onAnswer, onRetry, onRegenerat
           pager.ref(node);
         }}
         className="relative min-h-0 overflow-hidden"
-        // No gesture in here is ever the browser's.
+        // This pager owns the horizontal axis, and the panels opt back into
+        // vertical panning themselves — see the feed root.
         style={{ touchAction: 'none' }}
         {...pager.handlers}
       >

@@ -138,6 +138,11 @@ html {
   height: 100%;
   /* Prevent iOS text inflation in landscape without disabling user zoom. */
   -webkit-text-size-adjust: 100%;
+  /* The document itself is never a scroll surface — every view is sized to the
+     viewport and scrolls internally. Without this, a swipe that runs past the
+     end of a description chains outward and rubber-bands the whole page. */
+  overflow: hidden;
+  overscroll-behavior: none;
 }
 
 body {
@@ -148,9 +153,8 @@ body {
   font-size: var(--text-base);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
-  /* The feed owns vertical scrolling; the body must never scroll sideways. */
-  overflow-x: hidden;
-  overscroll-behavior-y: none;
+  overflow: hidden;
+  overscroll-behavior: none;
 }
 
 * {
@@ -229,8 +233,8 @@ body {
   white-space: pre-wrap;
   word-break: break-word;
   /* Wrapped content never overflows sideways, so this is not a pan surface.
-     Left as `auto`, the browser claims the pointer for a horizontal pan and
-     cancels it, swallowing the swipe that pages the feed. */
+     Left as `auto`, a horizontal swipe over a code block would pan the block
+     instead of paging the feed. */
   touch-action: pan-y;
 }
 

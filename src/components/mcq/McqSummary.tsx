@@ -20,9 +20,9 @@ export function McqSummary({ set, grounded, width, onRetry, onRegenerate }: Prop
 
   return (
     <div
-      className="no-scrollbar h-full shrink-0 overflow-y-auto px-4 pb-4"
-      // Scrolled by the feed's pager — see ProblemCard's description body.
-      style={{ width, touchAction: 'none' }}
+      className="no-scrollbar h-full shrink-0 overflow-y-auto overscroll-y-contain px-4 pb-4"
+      // Vertical panning is the browser's — see ProblemCard's description body.
+      style={{ width, touchAction: 'pan-y' }}
     >
       <p className="pt-3 pb-2 text-[12px] leading-none tracking-wide text-[var(--color-text-muted)] uppercase">
         Summary

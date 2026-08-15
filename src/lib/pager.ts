@@ -17,10 +17,10 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 const COMMIT_RATIO = 0.5;
 /** ...or when the finger was still moving this fast (px/ms) at release, so a
  *  deliberate flick commits without having to cross the halfway mark. */
-const FLICK_VELOCITY = 0.4;
+const FLICK_VELOCITY = 0.3;
 /** A flick must also travel this share of the page. Speed alone is not intent:
  *  a quick nudge while reading clears any velocity bar worth setting. */
-const FLICK_MIN_RATIO = 0.06;
+const FLICK_MIN_RATIO = 0;
 /** Velocity is measured over the tail of the gesture, not its whole length: a
  *  slow drag that ends in a flick should read as a flick. */
 const VELOCITY_WINDOW_MS = 100;
@@ -33,27 +33,8 @@ const WHEEL_THRESHOLD = 40;
 const WHEEL_IDLE_MS = 150;
 /** Below this the gesture is still ambiguous, so neither axis claims it. */
 const DIRECTION_SLOP = 8;
-/** Momentum decay per frame for a flung inner scroller, at 60fps. Touch
- *  scrolling is driven here, so the coast after release is ours to supply. */
-const MOMENTUM_DECAY = 0.968;
-/** Below this speed (px/ms) the coast is over; running it to zero wastes
- *  frames on movement too small to see. */
-const MOMENTUM_MIN_VELOCITY = 0.02;
-/** Ceiling on release speed. A thumb tops out near 4 px/ms; anything above is
- *  a synthetic or coalesced event, and would fling the whole description. */
-const MOMENTUM_MAX_VELOCITY = 4;
 
 export type Axis = 'x' | 'y';
-
-/**
- * Finds the scroller, if any, that a gesture starting at `target` should drive
- * instead of the pager. `boundary` is the pager's own root, where the search
- * stops.
- */
-export type InnerScrollerLookup = (
-  target: EventTarget | null,
-  boundary: HTMLElement | null,
-) => HTMLElement | null;
 
 type Options = {
   readonly axis: Axis;
@@ -64,10 +45,6 @@ type Options = {
   readonly pageSize: number;
   /** False while a sheet or dialog owns input. */
   readonly enabled?: boolean;
-  readonly innerScroller?: InnerScrollerLookup;
-  /** Axis the inner scroller moves on. Defaults to the pager's own; the feed
-   *  passes the perpendicular one, its descriptions scrolling across its axis. */
-  readonly innerAxis?: Axis;
   /** Keep gestures from reaching an enclosing pager on the same axis. The MCQ
    *  strip sets this: inside the questions view, sideways means panel, not card. */
   readonly isolate?: boolean;
@@ -96,12 +73,10 @@ type Drag = {
   readonly id: number;
   readonly startMain: number;
   readonly startCross: number;
-  /** Where the pointer was on the previous move, for the incremental scroll. */
+  /** Where the pointer was on the previous move, for the release velocity. */
   lastPos: number;
   /** Recent (time, position) samples, trimmed to VELOCITY_WINDOW_MS. */
   readonly samples: Array<{ t: number; pos: number }>;
-  /** The scroller this gesture drives instead of the pager, resolved once. */
-  inner: HTMLElement | null;
   /** Null until the gesture crosses DIRECTION_SLOP and an axis claims it. */
   claimed: boolean | null;
   delta: number;
@@ -114,11 +89,8 @@ export function usePager({
   onIndexChange,
   pageSize,
   enabled = true,
-  innerScroller,
-  innerAxis = axis,
   isolate = false,
 }: Options): Pager {
-  const crossInner = innerAxis !== axis;
   const [drag, setDrag] = useState(0);
   const [dragging, setDragging] = useState(false);
   const dragRef = useRef<Drag | null>(null);
@@ -128,9 +100,9 @@ export function usePager({
   // listeners that must not be torn down and rebuilt on each index change, and
   // the pointer path reads it mid-gesture where a stale closure would commit
   // against the wrong page size.
-  const live = useRef({ index, count, pageSize, enabled, onIndexChange, innerScroller, crossInner });
+  const live = useRef({ index, count, pageSize, enabled, onIndexChange });
   useEffect(() => {
-    live.current = { index, count, pageSize, enabled, onIndexChange, innerScroller, crossInner };
+    live.current = { index, count, pageSize, enabled, onIndexChange };
   });
 
   const goTo = useCallback((next: number) => {
@@ -145,103 +117,11 @@ export function usePager({
     setDrag(0);
   }, []);
 
-  // Momentum for an inner scroller after the finger lifts. The browser would
-  // normally supply this, but touch scrolling is driven from here, so the coast
-  // is ours to animate too.
-  const momentumRef = useRef(0);
-
-  const stopMomentum = useCallback(() => {
-    cancelAnimationFrame(momentumRef.current);
-    momentumRef.current = 0;
-  }, []);
-
-  // Drag scrolling, coalesced to the frame clock. Pointer events fire at the
-  // digitiser's rate — several per frame, or none — so their deltas are banked
-  // here and flushed once per frame, giving one even step per repaint.
-  const pendingRef = useRef<{ el: HTMLElement; delta: number; frame: number } | null>(null);
-
-  const scrollBy = useCallback(
-    (el: HTMLElement, delta: number) => {
-      const prop = innerAxis === 'y' ? 'scrollTop' : 'scrollLeft';
-      const pending = pendingRef.current;
-      if (pending && pending.el === el) {
-        pending.delta += delta;
-        return;
-      }
-      // A different element mid-gesture: flush the old one rather than drop it.
-      if (pending) {
-        cancelAnimationFrame(pending.frame);
-        pending.el[innerAxis === 'y' ? 'scrollTop' : 'scrollLeft'] -= pending.delta;
-      }
-      const entry: { el: HTMLElement; delta: number; frame: number } = { el, delta, frame: 0 };
-      entry.frame = requestAnimationFrame(() => {
-        pendingRef.current = null;
-        el[prop] -= entry.delta;
-      });
-      pendingRef.current = entry;
-    },
-    [innerAxis],
-  );
-
-  const flushScroll = useCallback(() => {
-    const pending = pendingRef.current;
-    if (!pending) return;
-    cancelAnimationFrame(pending.frame);
-    pendingRef.current = null;
-    pending.el[innerAxis === 'y' ? 'scrollTop' : 'scrollLeft'] -= pending.delta;
-  }, [innerAxis]);
-
-  const flingInner = useCallback((el: HTMLElement, velocity: number, axis: Axis) => {
-    const prop = axis === 'y' ? 'scrollTop' : 'scrollLeft';
-    const extent =
-      axis === 'y' ? el.scrollHeight - el.clientHeight : el.scrollWidth - el.clientWidth;
-    // Velocity is px/ms toward the finger; the content moves the other way.
-    let v = -Math.sign(velocity) * Math.min(Math.abs(velocity), MOMENTUM_MAX_VELOCITY);
-    let last = 0;
-    // The coast owns the scroller for its duration, so position is carried in a
-    // float here: reading scrollTop back each frame would force a synchronous
-    // layout, and its integer rounding would swallow sub-pixel steps at low
-    // speed, stalling the tail of the animation.
-    let at = el[prop];
-
-    const step = (now: number) => {
-      // First frame establishes the clock rather than integrating against 0.
-      const dt = last ? now - last : 16;
-      last = now;
-      const before = at;
-      at = Math.max(0, Math.min(extent, at + v * dt));
-      el[prop] = at;
-      // Decay is per 60fps frame, so a slow frame decays proportionally more.
-      v *= Math.pow(MOMENTUM_DECAY, dt / 16);
-      // Stop below a visible step, or on hitting an end: a coast that no longer
-      // moves a whole pixel per frame is finished, and one pinned against a
-      // wall should not keep burning frames.
-      if (Math.abs(v) < MOMENTUM_MIN_VELOCITY || Math.abs(at - before) < 1) {
-        momentumRef.current = 0;
-        return;
-      }
-      momentumRef.current = requestAnimationFrame(step);
-    };
-
-    momentumRef.current = requestAnimationFrame(step);
-  }, []);
-
-  useEffect(
-    () => () => {
-      stopMomentum();
-      const pending = pendingRef.current;
-      if (pending) cancelAnimationFrame(pending.frame);
-    },
-    [stopMomentum],
-  );
-
   const onPointerDown = useCallback((e: React.PointerEvent) => {
     // Claimed before any early return, so an enclosing pager on this axis never
     // sees the gesture even when this one declines it.
     if (isolate) e.stopPropagation();
     if (!live.current.enabled || dragRef.current) return;
-    // Touching a coasting scroller catches it, as it would natively.
-    stopMomentum();
     // A mouse drag is not a paging gesture: the wheel is the desktop input, and
     // paging on drag would make text unselectable in the description.
     if (e.pointerType === 'mouse') return;
@@ -252,76 +132,41 @@ export function usePager({
       startCross: axis === 'y' ? e.clientX : e.clientY,
       lastPos: pos,
       samples: [{ t: e.timeStamp, pos }],
-      inner: null,
       claimed: null,
       delta: 0,
     };
-  }, [axis, isolate, stopMomentum]);
+  }, [axis, isolate]);
 
   const onPointerMove = useCallback((e: React.PointerEvent) => {
     const active = dragRef.current;
     if (!active || active.id !== e.pointerId) return;
 
-    const { index: at, count: n, crossInner: perpendicular } = live.current;
+    const { index: at, count: n } = live.current;
     const pos = axis === 'y' ? e.clientY : e.clientX;
-    const crossPos = axis === 'y' ? e.clientX : e.clientY;
     const main = pos - active.startMain;
-    const cross = crossPos - active.startCross;
+    const cross = (axis === 'y' ? e.clientX : e.clientY) - active.startCross;
 
     if (active.claimed === null) {
       if (Math.abs(main) < DIRECTION_SLOP && Math.abs(cross) < DIRECTION_SLOP) return;
-      // Which axis the finger actually chose: the pager's, or the one across it.
-      const sideways = Math.abs(cross) > Math.abs(main);
-      // The scroller only wants gestures running along the axis it scrolls on,
-      // which for a perpendicular one is the pager's cross axis. Consulted only
-      // then, and only if it can still move: a description that scrolls
-      // vertically must not swallow the sideways swipe that pages the feed.
-      // A gesture it does claim is its for the whole stroke.
-      const forScroller = perpendicular ? sideways : !sideways;
-      active.inner = forScroller
-        ? (live.current.innerScroller?.(e.target, nodeRef.current) ?? null)
-        : null;
-
-      // A cross-axis gesture that no scroller wants is not this pager's, and
-      // once rejected it stays rejected for the rest of the gesture.
-      if (!active.inner && sideways) {
+      // A gesture across this axis belongs to whatever scrolls there — the
+      // browser pans it natively — and once rejected it stays rejected for the
+      // rest of the stroke.
+      if (Math.abs(cross) > Math.abs(main)) {
         active.claimed = false;
         return;
       }
       active.claimed = true;
-      setDragging(!active.inner);
-      // A cross-axis scroll measures the other coordinate, so its history has
-      // to start from that one rather than from the axis it never moved along.
-      if (active.inner && perpendicular) {
-        active.lastPos = crossPos;
-        active.samples.length = 0;
-        active.samples.push({ t: e.timeStamp, pos: crossPos });
-      }
+      setDragging(true);
       // Capture so a fast drag leaving the element still delivers its pointerup
       // here, rather than stranding the page mid-transition.
       e.currentTarget.setPointerCapture(e.pointerId);
     }
     if (!active.claimed) return;
 
-    // An inner scroller on the perpendicular axis tracks the cross coordinate,
-    // and everything downstream — momentum included — measures it there.
-    const along = active.inner && perpendicular ? crossPos : pos;
-    const prev = active.lastPos;
-    active.lastPos = along;
-    active.samples.push({ t: e.timeStamp, pos: along });
+    active.lastPos = pos;
+    active.samples.push({ t: e.timeStamp, pos });
     while (active.samples.length > 2 && e.timeStamp - active.samples[0].t > VELOCITY_WINDOW_MS) {
       active.samples.shift();
-    }
-
-    // The scroller is driven from here rather than by the browser, which would
-    // otherwise claim the pointer and cancel it on the first native pan. The
-    // write is deferred to the next frame: pointer events arrive at their own
-    // rate, often several per frame or straddling two, and writing scrollTop
-    // inside the handler moves the content on the pointer's clock instead of
-    // the display's — which reads as jitter.
-    if (active.inner) {
-      scrollBy(active.inner, along - prev);
-      return;
     }
 
     // At either end the page cannot move, so the drag is damped rather than
@@ -329,33 +174,29 @@ export function usePager({
     const blocked = (main > 0 && at === 0) || (main < 0 && at === n - 1);
     active.delta = blocked ? main * EDGE_FRICTION : main;
     setDrag(active.delta);
-  }, [axis, scrollBy]);
+  }, [axis]);
 
   const onPointerUp = useCallback((e: React.PointerEvent) => {
     const active = dragRef.current;
     if (!active || active.id !== e.pointerId) return;
     const { index: at, pageSize: size } = live.current;
-    const { claimed, delta, samples, inner } = active;
+    const { claimed, delta, samples } = active;
     cancelDrag();
-    if (!claimed) return;
+    if (!claimed || delta === 0) return;
 
+    // End time and end position both come from this event. Measuring the span
+    // to the release but the distance only to the last move would charge the
+    // gap between them — a whole sample interval — to the denominator alone,
+    // under-reporting a flick by enough to make the threshold device-dependent.
+    // The span still runs from the oldest sample, so a gesture held still
+    // before release decays: the span keeps growing while the distance does not.
+    // A cancel's coordinates are not trustworthy, so that path keeps the last
+    // move instead.
     const first = samples[0];
     const pos = axis === 'y' ? e.clientY : e.clientX;
-    const crossPos = axis === 'y' ? e.clientX : e.clientY;
-    const along = inner && live.current.crossInner ? crossPos : pos;
-    const endPos = e.type === 'pointercancel' ? active.lastPos : along;
+    const endPos = e.type === 'pointercancel' ? active.lastPos : pos;
     const span = first ? e.timeStamp - first.t : 0;
     const velocity = span > 0 ? (endPos - first.pos) / span : 0;
-
-    // A scroller keeps its own gesture, so releasing over one coasts it rather
-    // than paging. The last banked frame lands first, so the coast starts from
-    // where the finger actually left off.
-    if (inner) {
-      flushScroll();
-      if (Math.abs(velocity) >= MOMENTUM_MIN_VELOCITY) flingInner(inner, velocity, innerAxis);
-      return;
-    }
-    if (delta === 0) return;
 
     // Distance OR velocity: past halfway commits, and so does a flick that
     // never got there, which is what a short fast swipe expects to do.
@@ -369,7 +210,7 @@ export function usePager({
     if (Math.abs(delta) > size * COMMIT_RATIO || flicked) {
       goTo(at + (delta < 0 ? 1 : -1));
     }
-  }, [axis, innerAxis, cancelDrag, flingInner, flushScroll, goTo]);
+  }, [axis, cancelDrag, goTo]);
 
   /**
    * Wheel and trackpad.
@@ -392,16 +233,13 @@ export function usePager({
       const main = axis === 'y' ? e.deltaY : e.deltaX;
       const cross = axis === 'y' ? e.deltaX : e.deltaY;
 
-      // A wheel over a scroller is that scroller's, at its ends as much as in
-      // the middle; the browser scrolls it natively. The accumulator resets
-      // so delta spent reading never counts toward a later page change. A
-      // scroller on the perpendicular axis only claims perpendicular deltas.
-      const scroller = live.current.innerScroller?.(e.target, node);
-      if (scroller && (live.current.crossInner ? Math.abs(cross) > Math.abs(main) : true)) {
+      // A cross-axis wheel belongs to whatever scrolls there, which the browser
+      // handles natively. The accumulator resets so delta spent reading a
+      // description never counts toward a later page change.
+      if (Math.abs(main) <= Math.abs(cross)) {
         wheel.accum = 0;
         return;
       }
-      if (Math.abs(main) <= Math.abs(cross)) return;
 
       // An enclosing pager on this axis must not page as well. Claimed here
       // whether or not the accumulator has filled, so the deltas leading up to

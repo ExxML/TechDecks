@@ -1,10 +1,9 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ProblemCard } from './ProblemCard';
 import { Skeleton } from './ui/Skeleton';
 import { usePager } from '@/lib/pager';
-import { innerScrollerOn } from '@/lib/scrollYield';
 import { shouldIgnoreShortcut } from '@/lib/keyboard';
 import type { ContentItem, FeedCursor } from '@/lib/types';
 
@@ -20,12 +19,12 @@ const WINDOW = 1;
 const PREFETCH_WITHIN = 3;
 
 /**
- * The vertical card feed.
+ * The horizontal card feed.
  *
  * Cards live on one transformed track driven by `usePager` rather than by
  * scroll-snap, so a trackpad flick, a mouse wheel and a thumb swipe all move
  * exactly one card. See lib/pager.ts for why the browser cannot be trusted
- * with this.
+ * with this. Vertical scrolling inside a card is the browser's.
  *
  * `dvh` not `vh` — mobile browser chrome resizes vh, which produces a visible
  * jump as the URL bar hides.
@@ -102,18 +101,12 @@ export function ProblemFeed({ initialItems, initialCursor }: Props) {
     }
   }, [active, items]);
 
-  // Descriptions scroll vertically inside a horizontally paged feed, so the
-  // gesture's own direction decides which of the two it drives.
-  const innerScroller = useMemo(() => innerScrollerOn('y'), []);
-
   const pager = usePager({
     axis: 'x',
     count: items.length,
     index: active,
     onIndexChange: setActive,
     pageSize,
-    innerScroller,
-    innerAxis: 'y',
   });
 
   // Left/Right page the feed; the vertical keys belong to the description, and
@@ -159,9 +152,9 @@ export function ProblemFeed({ initialItems, initialCursor }: Props) {
       aria-label="Problem feed"
       aria-roledescription="carousel"
       className="relative h-[calc(100dvh-48px)] overflow-hidden focus:outline-none"
-      // The pager owns every gesture in here, including the vertical ones it
-      // forwards to a description. A native pan would claim the pointer and
-      // cancel it, leaving the gesture stranded mid-card.
+      // No gesture starting here is the browser's: the pager pages on the
+      // horizontal axis, and the only vertical panning that should happen is
+      // inside a scroller, which opts back in with its own pan-y.
       style={{ touchAction: 'none' }}
       {...pager.handlers}
     >

@@ -20,8 +20,8 @@ type Props = {
 
 /**
  * One full-viewport card in one of two states that never coexist: Reading
- * (scrollable body carrying the problem header, then the action bar) and
- * Questions (one-line title bar, then the MCQ strip).
+ * (scrollable body carrying the problem header, the description and the action
+ * bar) and Questions (one-line title bar, then the MCQ strip).
  *
  * The body is an ordinary scroller, panned by the browser. Paging is the
  * perpendicular axis, so a long description never traps the reader on the card.
@@ -54,8 +54,11 @@ export function ProblemCard({ item, active, inQuestions, onQuestionsChange }: Pr
   return (
     <article
       data-slug={item.slug}
+      // Row template tracks the children actually rendered: State B adds the
+      // title bar, State A is the scroller alone and must get the whole card —
+      // an unused `auto` track would size that row to content instead.
       className={`grid h-full w-full border-r border-[var(--color-border)] bg-[var(--color-bg)] ${
-        inQuestions ? 'grid-rows-[auto_1fr]' : 'grid-rows-[1fr_auto]'
+        inQuestions ? 'grid-rows-[auto_1fr]' : 'grid-rows-[1fr]'
       }`}
     >
       {/* State B: header collapses to one line with a way back. */}
@@ -85,42 +88,49 @@ export function ProblemCard({ item, active, inQuestions, onQuestionsChange }: Pr
           onNoSet={() => onQuestionsChange(false)}
         />
       ) : (
-        <div className="relative min-h-0">
-          {/* pb-10 clears the h-8 fade, so the last line is never sat on. */}
-          <div
-            ref={bodyRef}
-            onScroll={measureBody}
-            className="no-scrollbar h-full overflow-y-auto overscroll-y-contain px-4 pb-10"
-            // The browser owns vertical panning here, so reading a description
-            // runs on the compositor with native momentum. Horizontal is left
-            // to the feed's pager, which pages cards on that axis.
-            style={{ touchAction: 'pan-y' }}
-          >
-            <ProblemHeader item={item} />
-            <ProblemBody html={item.body_html} format={item.body_format} />
-          </div>
-          {/* Fade mask signalling more content below — hidden once there is none. */}
-          <div
-            className="pointer-events-none absolute inset-x-0 bottom-0 h-8 transition-opacity duration-100"
-            style={{
-              background: 'linear-gradient(to top, var(--color-bg), transparent)',
-              opacity: atBodyEnd ? 0 : 1,
-            }}
-            aria-hidden="true"
-          />
-        </div>
-      )}
+        <div
+          ref={bodyRef}
+          onScroll={measureBody}
+          className="no-scrollbar h-full overflow-y-auto overscroll-y-contain"
+          // The browser owns vertical panning here, so reading a description
+          // runs on the compositor with native momentum. Horizontal is left
+          // to the feed's pager, which pages cards on that axis.
+          style={{ touchAction: 'pan-y' }}
+        >
+          {/* min-h-full so a description shorter than the card still carries the
+              action bar to the bottom edge, via the mt-auto below. */}
+          <div className="flex min-h-full flex-col">
+            {/* pb-8 clears the h-8 fade, so the last line is never sat on. */}
+            <div className="px-4 pb-8">
+              <ProblemHeader item={item} />
+              <ProblemBody html={item.body_html} format={item.body_format} />
+            </div>
 
-      {/* Bottom row (auto). In State B the strip owns the 1fr row and carries
-          its own stepper, so the action bar belongs to State A only. */}
-      {!inQuestions && (
-        <McqController
-          item={item}
-          active={active}
-          inQuestions={false}
-          onEnterQuestions={() => onQuestionsChange(true)}
-          onNoSet={() => onQuestionsChange(false)}
-        />
+            {/* The action bar scrolls with the description rather than sitting
+                beside it, so a gesture over it pans the same scroller; sticky
+                keeps it pinned to the card's bottom edge. Last in flow, so the
+                space it occupies is reserved and no text hides beneath it. */}
+            <div className="sticky bottom-0 mt-auto bg-[var(--color-bg)]">
+              {/* Fade mask signalling more content below — hidden once there is
+                  none. Sits above the bar, outside its flow. */}
+              <div
+                className="pointer-events-none absolute inset-x-0 bottom-full h-8 transition-opacity duration-100"
+                style={{
+                  background: 'linear-gradient(to top, var(--color-bg), transparent)',
+                  opacity: atBodyEnd ? 0 : 1,
+                }}
+                aria-hidden="true"
+              />
+              <McqController
+                item={item}
+                active={active}
+                inQuestions={false}
+                onEnterQuestions={() => onQuestionsChange(true)}
+                onNoSet={() => onQuestionsChange(false)}
+              />
+            </div>
+          </div>
+        </div>
       )}
     </article>
   );

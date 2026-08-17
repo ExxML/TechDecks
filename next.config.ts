@@ -10,6 +10,8 @@ const nextConfig: NextConfig = {
   // Next regenerates AGENTS.md/CLAUDE.md on every dev start. This project
   // keeps its own docs; the generated ones are churn.
   agentRules: false,
+  // Allow LAN devices (phones, tablets) to load dev assets.
+  allowedDevOrigins: ['192.168.*.*', '10.*.*.*'],
 };
 
 export default nextConfig;

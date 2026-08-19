@@ -140,6 +140,7 @@ export function McqStrip({ set, grounded, active, onAnswer, onRetry, onRegenerat
             width: panelCount * pageSize,
             transform: `translate3d(${pager.offset}px, 0, 0)`,
             transition: pager.dragging ? 'none' : 'transform 260ms cubic-bezier(0.22, 1, 0.36, 1)',
+            visibility: pageSize ? undefined : 'hidden',
           }}
         >
           {set.questions.map((q, i) => (

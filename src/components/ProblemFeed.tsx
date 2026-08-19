@@ -164,6 +164,7 @@ export function ProblemFeed({ initialItems, initialCursor }: Props) {
           transform: `translate3d(${pager.offset}px, 0, 0)`,
           // No transition while the finger is down: the card tracks the drag.
           transition: pager.dragging ? 'none' : 'transform 260ms cubic-bezier(0.22, 1, 0.36, 1)',
+          visibility: pageSize ? undefined : 'hidden',
         }}
       >
         {/* Only the window is mounted, so each card is placed at its absolute

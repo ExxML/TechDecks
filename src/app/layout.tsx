@@ -3,9 +3,10 @@ import './globals.css';
 import { TabBar } from '@/components/TabBar';
 import { MigrationGate } from '@/components/MigrationGate';
 import { THEME_INIT_SCRIPT } from '@/lib/theme';
+import { APP_NAME } from '@/lib/title';
 
 export const metadata: Metadata = {
-  title: 'TechDecks',
+  title: APP_NAME,
   description: 'Practice technical interview problems without typing code.',
   manifest: '/manifest.webmanifest',
   // Declared explicitly so the tab icon is the app's own mark rather than
@@ -16,7 +17,7 @@ export const metadata: Metadata = {
   },
   appleWebApp: {
     capable: true,
-    title: 'TechDecks',
+    title: APP_NAME,
     statusBarStyle: 'black-translucent',
   },
 };

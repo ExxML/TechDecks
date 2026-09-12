@@ -9,6 +9,7 @@ import {
   searchContentItems,
 } from '@/lib/queries';
 import { filtersFromParams } from '@/lib/searchParams';
+import { pageTitle } from '@/lib/title';
 import { ProblemFeed } from '@/components/ProblemFeed';
 import type { FeedPage } from '@/lib/types';
 
@@ -36,7 +37,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const db = await createClient();
   const item = await fetchItemBySlug(db, slug);
   if (!item) notFound();
-  return { title: `${item.title} — TechDecks` };
+  return { title: pageTitle(item.title) };
 }
 
 /**

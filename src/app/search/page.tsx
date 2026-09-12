@@ -1,7 +1,8 @@
+import { pageTitle } from '@/lib/title';
 import { Suspense } from 'react';
 import { SearchView } from '@/components/SearchView';
 
-export const metadata = { title: 'Search — TechDecks' };
+export const metadata = { title: pageTitle('Search') };
 
 /**
  * `useSearchParams` opts a client component into request-time rendering, which

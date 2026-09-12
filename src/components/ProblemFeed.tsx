@@ -7,6 +7,7 @@ import { SwipeHint } from './SwipeHint';
 import { usePager } from '@/lib/pager';
 import { shouldIgnoreShortcut } from '@/lib/keyboard';
 import { saveFeedSession, takeFeedSession } from '@/lib/feedSession';
+import { pageTitle } from '@/lib/title';
 import { useUser } from '@/lib/auth';
 import type { ContentItem, FeedCursor } from '@/lib/types';
 
@@ -109,13 +110,21 @@ export function ProblemFeed({ initialItems, initialCursor, origin, initialIndex 
     if (items.length - active <= PREFETCH_WITHIN) void loadMore();
   }, [active, items.length, loadMore]);
 
-  // Reflect the active card in the URL without a navigation, so a deep link can
-  // be copied mid-feed and the back button still leaves the feed.
+  // Reflect the active card in the URL and the tab title without a navigation,
+  // so a deep link can be copied mid-feed and the back button still leaves the
+  // feed.
+  //
+  // The title is set here rather than by generateMetadata because paging is not
+  // a navigation: metadata runs once, for the slug the route was entered with,
+  // and `/problems` has no slug at all — so returning to this tab would
+  // otherwise fall back to the layout's bare app name.
   useEffect(() => {
-    const slug = items[active]?.slug;
-    if (slug && window.location.pathname !== `/problems/${slug}`) {
-      window.history.replaceState(null, '', `/problems/${slug}`);
+    const item = items[active];
+    if (!item) return;
+    if (window.location.pathname !== `/problems/${item.slug}`) {
+      window.history.replaceState(null, '', `/problems/${item.slug}`);
     }
+    document.title = pageTitle(item.title);
   }, [active, items]);
 
   // Checkpoint the position for a return to this tab. Written on every change

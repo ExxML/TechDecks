@@ -25,6 +25,9 @@ type Props = {
   readonly renderAction?: (item: CompactListItem) => React.ReactNode;
   /** False when the parent owns the scroll container, as /search does. */
   readonly scrollable?: boolean;
+  /** Appended to each row's href. /search passes its own params so the feed
+   *  pages through the results in this order rather than the shuffled catalog. */
+  readonly hrefSuffix?: string;
 };
 
 /**
@@ -33,7 +36,13 @@ type Props = {
  * A 100dvh snap feed is a poor way to read a result list, so `/bookmarks` and
  * `/search` share this layout instead of reusing ProblemFeed.
  */
-export function CompactList({ items, emptyMessage, renderAction, scrollable = true }: Props) {
+export function CompactList({
+  items,
+  emptyMessage,
+  renderAction,
+  scrollable = true,
+  hrefSuffix = '',
+}: Props) {
   if (items.length === 0) {
     // An empty message is only meaningful when this component owns the viewport;
     // /search renders its own richer empty state with a Clear action.
@@ -50,7 +59,10 @@ export function CompactList({ items, emptyMessage, renderAction, scrollable = tr
       {items.map((item) => (
         <li key={item.id} className="border-b border-[var(--color-border)]">
           <div className="flex h-[56px] items-center gap-3 px-4">
-            <Link href={`/problems/${item.slug}`} className="flex min-w-0 flex-1 flex-col gap-1">
+            <Link
+              href={`/problems/${item.slug}${hrefSuffix}`}
+              className="flex min-w-0 flex-1 flex-col gap-1"
+            >
               <span className="truncate text-[14px] leading-none text-[var(--color-text)]">
                 {item.sort_key !== null && (
                   <span className="text-[var(--color-text-muted)]">{item.sort_key}. </span>

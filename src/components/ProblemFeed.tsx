@@ -3,13 +3,22 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ProblemCard } from './ProblemCard';
 import { Skeleton } from './ui/Skeleton';
+import { SwipeHint } from './SwipeHint';
 import { usePager } from '@/lib/pager';
 import { shouldIgnoreShortcut } from '@/lib/keyboard';
+import { saveFeedSession, takeFeedSession } from '@/lib/feedSession';
+import { useUser } from '@/lib/auth';
 import type { ContentItem, FeedCursor } from '@/lib/types';
 
 type Props = {
   readonly initialItems: readonly ContentItem[];
   readonly initialCursor: FeedCursor | null;
+  /** Where this list came from, so leaving the tab and coming back restores the
+   *  card the reader was on rather than re-dealing. See lib/feedSession.ts. */
+  readonly origin: string;
+  /** Index to open on. Non-zero when the feed is entered from a result list at
+   *  a hit partway down it. */
+  readonly initialIndex?: number;
 };
 
 /** Cards kept mounted either side of the active one. One is enough to render
@@ -29,11 +38,17 @@ const PREFETCH_WITHIN = 3;
  * `dvh` not `vh` — mobile browser chrome resizes vh, which produces a visible
  * jump as the URL bar hides.
  */
-export function ProblemFeed({ initialItems, initialCursor }: Props) {
-  const [items, setItems] = useState<readonly ContentItem[]>(initialItems);
-  const [cursor, setCursor] = useState<FeedCursor | null>(initialCursor);
+export function ProblemFeed({ initialItems, initialCursor, origin, initialIndex = 0 }: Props) {
+  // A session saved under this origin wins over the server's page: it is the
+  // same list, further along. Read once, at mount.
+  const [restored] = useState(() => takeFeedSession(origin));
+  const [items, setItems] = useState<readonly ContentItem[]>(restored?.items ?? initialItems);
+  const [cursor, setCursor] = useState<FeedCursor | null>(restored?.cursor ?? initialCursor);
   const [loading, setLoading] = useState(false);
-  const [active, setActive] = useState(0);
+  const [active, setActive] = useState(restored?.index ?? initialIndex);
+  // `authLoading` gates the hint: `user` is null before the session resolves,
+  // and a signed-in reader must not be taught the gesture even briefly.
+  const { user, loading: authLoading } = useUser();
 
   // Which cards are showing questions. Held here rather than in ProblemCard
   // because a windowed card unmounts as it leaves the window, and a reader who
@@ -69,7 +84,9 @@ export function ProblemFeed({ initialItems, initialCursor }: Props) {
     if (!c || loadingRef.current) return;
     setLoading(true);
     try {
-      const res = await fetch(`/api/feed?sortKey=${c.sortKey}&id=${encodeURIComponent(c.id)}`);
+      const res = await fetch(
+        `/api/feed?seed=${encodeURIComponent(c.seed)}&key=${c.key}&id=${encodeURIComponent(c.id)}`,
+      );
       if (!res.ok) throw new Error(`feed request failed: ${res.status}`);
       const page = (await res.json()) as { items: ContentItem[]; nextCursor: FeedCursor | null };
       setItems((prev) => {
@@ -100,6 +117,12 @@ export function ProblemFeed({ initialItems, initialCursor }: Props) {
       window.history.replaceState(null, '', `/problems/${slug}`);
     }
   }, [active, items]);
+
+  // Checkpoint the position for a return to this tab. Written on every change
+  // rather than on unmount, which a tab switch does not reliably reach.
+  useEffect(() => {
+    saveFeedSession({ items, cursor, index: active, origin });
+  }, [items, cursor, active, origin]);
 
   const pager = usePager({
     axis: 'x',
@@ -197,6 +220,10 @@ export function ProblemFeed({ initialItems, initialCursor }: Props) {
           </div>
         )}
       </div>
+
+      {/* Only while the reader is still on the card the feed opened with: the
+          first swipe is what the hint asks for, and it answers itself. */}
+      <SwipeHint show={!authLoading && user === null && active === 0 && items.length > 1} />
 
       {!cursor && !loading && active === items.length - 1 && (
         <p className="pointer-events-none absolute inset-x-0 bottom-2 text-center text-[13px] text-[var(--color-text-muted)]">

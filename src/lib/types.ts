@@ -56,10 +56,17 @@ export type ContentItem = {
   readonly tags: readonly Tag[];
 };
 
-/** Keyset cursor. Pagination is (sort_key, id), never OFFSET — OFFSET degrades
- *  on a long feed and duplicates cards when rows shift mid-scroll. */
+/**
+ * Keyset cursor, never OFFSET — OFFSET degrades on a long feed and duplicates
+ * cards when rows shift mid-scroll.
+ *
+ * `seed` travels with it because the feed is shuffled per page load: the key is
+ * hashtext(id || seed), so a later page must be dealt from the same shuffle or
+ * it would overlap and skip. See 0007_feed_shuffle.sql.
+ */
 export type FeedCursor = {
-  readonly sortKey: number;
+  readonly seed: string;
+  readonly key: number;
   readonly id: string;
 };
 

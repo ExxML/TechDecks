@@ -18,6 +18,8 @@ type Props = {
   readonly active: boolean;
   readonly onAnswer: (index: number, selectedIndex: number) => void;
   readonly onRetry: () => void;
+  /** Clears one question's answer, leaving the rest of the set's progress. */
+  readonly onResetOne: (index: number) => void;
   readonly onRegenerate: () => void;
   /** Escape leaves the question flow and returns to the description. */
   readonly onExit?: () => void;
@@ -30,7 +32,16 @@ type Props = {
  * Shares `usePager` with the feed and pages on the same axis, so it isolates
  * its gestures: inside the questions view, sideways means panel, not card.
  */
-export function McqStrip({ set, grounded, active, onAnswer, onRetry, onRegenerate, onExit }: Props) {
+export function McqStrip({
+  set,
+  grounded,
+  active,
+  onAnswer,
+  onRetry,
+  onResetOne,
+  onRegenerate,
+  onExit,
+}: Props) {
   const rootRef = useRef<HTMLDivElement>(null);
   const [panel, setPanel] = useState(0);
   const [pageSize, setPageSize] = useState(0);
@@ -150,6 +161,7 @@ export function McqStrip({ set, grounded, active, onAnswer, onRetry, onRegenerat
               answer={set.answers[i] ?? null}
               width={pageSize}
               onAnswer={(selected) => onAnswer(i, selected)}
+              onReset={() => onResetOne(i)}
             />
           ))}
           <McqSummary
@@ -157,6 +169,7 @@ export function McqStrip({ set, grounded, active, onAnswer, onRetry, onRegenerat
             grounded={grounded}
             width={pageSize}
             onRetry={onRetry}
+            onResetOne={onResetOne}
             onRegenerate={onRegenerate}
           />
         </div>

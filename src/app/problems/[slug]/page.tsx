@@ -1,12 +1,26 @@
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { createClient } from '@/lib/supabase/server';
-import { fetchItemBySlug, fetchFeedAnchoredAt } from '@/lib/queries';
+import {
+  fetchItemBySlug,
+  fetchItemsBySlugs,
+  fetchFeedAnchoredAt,
+  SEARCH_PAGE_SIZE,
+  searchContentItems,
+} from '@/lib/queries';
+import { filtersFromParams } from '@/lib/searchParams';
 import { ProblemFeed } from '@/components/ProblemFeed';
+import type { FeedPage } from '@/lib/types';
 
 export const dynamic = 'force-dynamic';
 
-type Props = { params: Promise<{ slug: string }> };
+type Props = {
+  params: Promise<{ slug: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+};
+
+/** The result list a search hit was opened from, if any. */
+const FROM_SEARCH = 'search';
 
 /**
  * `notFound()` here rather than only in the page component.
@@ -28,14 +42,82 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 /**
  * Deep link: renders the feed with that card first and continues into the
  * normal feed after it, so a bookmark or search hit does not dead-end.
+ *
+ * Opened from a result list (`?from=search` plus that search's own params), the
+ * feed pages through the results in the order they were listed instead — the
+ * reader chose that order, and the shuffled catalog is not it.
  */
-export default async function ProblemPage({ params }: Props) {
+export default async function ProblemPage({ params, searchParams }: Props) {
   const { slug } = await params;
+  const query = await searchParams;
   const db = await createClient();
 
   const item = await fetchItemBySlug(db, slug);
   if (!item) notFound();
 
-  const page = await fetchFeedAnchoredAt(db, item);
-  return <ProblemFeed initialItems={page.items} initialCursor={page.nextCursor} />;
+  let page: FeedPage;
+  let index = 0;
+  const fromSearch =
+    query.from === FROM_SEARCH ? await searchOrder(db, query, slug) : null;
+
+  if (fromSearch) {
+    ({ page, index } = fromSearch);
+  } else {
+    page = await fetchFeedAnchoredAt(db, item);
+  }
+
+  return (
+    <ProblemFeed
+      initialItems={page.items}
+      initialCursor={page.nextCursor}
+      // Distinct per result list, so returning to the Problems tab restores the
+      // search run the reader was in rather than the shuffled feed, and a
+      // different search does not resume the previous one.
+      origin={fromSearch ? `search:${originKey(query)}` : 'feed'}
+      initialIndex={index}
+    />
+  );
+}
+
+/**
+ * The search results as a feed, positioned at the hit that was tapped.
+ *
+ * Re-run server-side from the same URL params the result list was built from,
+ * so the order is the one the reader saw. Null when the slug is not in them —
+ * a stale link, which falls back to the ordinary anchored feed rather than
+ * dropping the reader somewhere unrelated.
+ */
+async function searchOrder(
+  db: Awaited<ReturnType<typeof createClient>>,
+  query: Record<string, string | string[] | undefined>,
+  slug: string,
+): Promise<{ page: FeedPage; index: number } | null> {
+  const filters = filtersFromParams(new URLSearchParams(flatten(query)));
+  const { hits } = await searchContentItems(db, filters, SEARCH_PAGE_SIZE);
+  if (!hits.some((h) => h.slug === slug)) return null;
+
+  // The hits carry no body, so the rows are re-read in full — in the hit order.
+  const items = await fetchItemsBySlugs(db, hits.map((h) => h.slug));
+  const index = items.findIndex((i) => i.slug === slug);
+  if (index === -1) return null;
+
+  // A result list is a closed set: it ends where it ends rather than running on
+  // into the catalog, which is the whole point of paging through it.
+  return { page: { items, nextCursor: null }, index };
+}
+
+/** Array-valued params cannot occur here; the first value is the only one. */
+function flatten(query: Record<string, string | string[] | undefined>): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(query)
+      .filter(([, v]) => v !== undefined)
+      .map(([k, v]) => [k, Array.isArray(v) ? (v[0] ?? '') : (v as string)]),
+  );
+}
+
+/** Identifies one result list, so two different searches never share a session. */
+function originKey(query: Record<string, string | string[] | undefined>): string {
+  const flat = flatten(query);
+  delete flat.from;
+  return new URLSearchParams(Object.entries(flat).sort()).toString();
 }

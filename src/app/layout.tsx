@@ -8,6 +8,12 @@ export const metadata: Metadata = {
   title: 'TechDecks',
   description: 'Practice technical interview problems without typing code.',
   manifest: '/manifest.webmanifest',
+  // Declared explicitly so the tab icon is the app's own mark rather than
+  // whatever /favicon.ico the host serves by default.
+  icons: {
+    icon: [{ url: '/icon.svg', type: 'image/svg+xml' }],
+    apple: '/apple-icon.png',
+  },
   appleWebApp: {
     capable: true,
     title: 'TechDecks',

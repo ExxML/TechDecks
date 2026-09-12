@@ -37,5 +37,5 @@ async function FeedContents() {
     );
   }
 
-  return <ProblemFeed initialItems={page.items} initialCursor={page.nextCursor} />;
+  return <ProblemFeed initialItems={page.items} initialCursor={page.nextCursor} origin="feed" />;
 }

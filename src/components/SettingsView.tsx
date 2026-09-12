@@ -8,6 +8,7 @@ import { ApiKeyDialog } from './ApiKeyDialog';
 import { AuthButton } from './AuthButton';
 import { ThemeToggle } from './ThemeToggle';
 import { useSettings } from '@/lib/settings';
+import { DEFAULT_LANGUAGE, LANGUAGES } from '@/lib/languages';
 import { useUser } from '@/lib/auth';
 import { useModels } from '@/lib/gemini/useModels';
 import { clearStoredKey } from '@/lib/gemini/keyStorage';
@@ -84,7 +85,7 @@ export function SettingsView() {
           {/* One-click delete. Drops the vault secret, not just the reference. */}
           {storedKey && (
             <Button
-              variant="ghost"
+              variant="danger"
               disabled={clearing}
               onClick={async () => {
                 setClearing(true);
@@ -135,17 +136,15 @@ export function SettingsView() {
         </p>
         <div className="mt-2">
           <Select
-            value={language ?? 'python3'}
+            value={language ?? DEFAULT_LANGUAGE}
             onChange={(e) => setLanguage(e.target.value)}
             aria-label="Default language"
           >
-            {['python3', 'cpp', 'java', 'javascript', 'typescript', 'golang', 'rust', 'csharp'].map(
-              (slug) => (
-                <option key={slug} value={slug}>
-                  {slug}
-                </option>
-              ),
-            )}
+            {LANGUAGES.map(({ slug, name }) => (
+              <option key={slug} value={slug}>
+                {name}
+              </option>
+            ))}
           </Select>
         </div>
       </section>

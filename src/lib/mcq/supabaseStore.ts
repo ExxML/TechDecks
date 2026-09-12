@@ -101,6 +101,15 @@ export class SupabaseMcqStore implements McqStore {
     return this.getById(setId);
   }
 
+  async resetAnswer(setId: string, index: number): Promise<McqSet> {
+    const { error } = await this.db.rpc('reset_answer', {
+      p_set_id: setId,
+      p_index: index,
+    });
+    if (error) throw new Error(`could not reset answer: ${error.message}`);
+    return this.getById(setId);
+  }
+
   async remove(setId: string): Promise<void> {
     const { error } = await this.db
       .from('mcq_sets')

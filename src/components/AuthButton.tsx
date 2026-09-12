@@ -39,7 +39,7 @@ export function AuthButton() {
         {user.email}
       </span>
       <Button
-        variant="ghost"
+        variant="danger"
         disabled={busy}
         onClick={async () => {
           setBusy(true);

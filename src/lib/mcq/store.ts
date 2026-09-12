@@ -46,8 +46,10 @@ export interface McqStore {
   save(set: NewMcqSet): Promise<McqSet>;
   /** Returns the updated set so callers never re-derive correctness. */
   recordAnswer(setId: string, index: number, selectedIndex: number): Promise<McqSet>;
-  /** Clears answers in place rather than creating a new set. */
+  /** Clears every answer in place rather than creating a new set. */
   reset(setId: string): Promise<McqSet>;
+  /** Clears one answer, leaving the rest of the set's progress alone. */
+  resetAnswer(setId: string, index: number): Promise<McqSet>;
   remove(setId: string): Promise<void>;
   /** Drops every set for one problem. */
   clear(contentItemId: string): Promise<void>;

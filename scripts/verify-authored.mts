@@ -27,6 +27,7 @@ import {
   addBookmark,
   removeBookmark,
   fetchFeedPage,
+  newFeedSeed,
 } from '../src/lib/queries';
 
 config({ path: '.env.local', quiet: true });
@@ -331,7 +332,7 @@ async function main(): Promise<void> {
     // --- feed exclusion ---
     console.log('\n=== feed exclusion ===');
 
-    const feed = await fetchFeedPage(alice.db, null, 50);
+    const feed = await fetchFeedPage(alice.db, null, newFeedSeed(), 50);
     check(
       "A's own authored problems do not appear in the public feed",
       !feed.items.some((f) => f.id === item.id || f.id === twoSum.id),

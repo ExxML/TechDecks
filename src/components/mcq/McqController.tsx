@@ -136,6 +136,12 @@ export function McqController({ item, active, onEnterQuestions, inQuestions, onN
     bump(item.id);
   };
 
+  const onResetOne = async (index: number) => {
+    if (!activeSet) return;
+    await store.resetAnswer(activeSet.id, index);
+    bump(item.id);
+  };
+
   const onDelete = async (setId: string) => {
     await store.remove(setId);
     bump(item.id);
@@ -154,6 +160,7 @@ export function McqController({ item, active, onEnterQuestions, inQuestions, onN
         active={active}
         onAnswer={onAnswer}
         onRetry={onRetry}
+        onResetOne={(index) => void onResetOne(index)}
         onRegenerate={() => setShowOptions(true)}
         onExit={onNoSet}
       />

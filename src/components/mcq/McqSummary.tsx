@@ -1,3 +1,4 @@
+import { RotateCcw } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Badge } from '../ui/Badge';
 import type { McqSet } from '@/lib/mcq/store';
@@ -8,11 +9,13 @@ type Props = {
   /** Measured by the strip, which pages in pixels. */
   readonly width: number;
   readonly onRetry: () => void;
+  /** Clears one question's answer, leaving the rest of the set's progress. */
+  readonly onResetOne: (index: number) => void;
   readonly onRegenerate: () => void;
 };
 
 /** Final panel appended to the strip: score, per-kind breakdown, actions. */
-export function McqSummary({ set, grounded, width, onRetry, onRegenerate }: Props) {
+export function McqSummary({ set, grounded, width, onRetry, onResetOne, onRegenerate }: Props) {
   const total = set.questions.length;
   const answered = set.answers.filter((a): a is NonNullable<typeof a> => a !== null);
   const score = answered.filter((a) => a.correct).length;
@@ -49,9 +52,11 @@ export function McqSummary({ set, grounded, width, onRetry, onRegenerate }: Prop
           return (
             <li
               key={i}
-              className="flex items-center justify-between rounded-[4px] border border-[var(--color-border)] px-3 py-2"
+              className="flex items-center justify-between gap-2 rounded-[4px] border border-[var(--color-border)] px-3 py-2"
             >
-              <span className="text-[13px] text-[var(--color-text)]">{q.kind}</span>
+              <span className="min-w-0 flex-1 truncate text-[13px] text-[var(--color-text)]">
+                {q.kind}
+              </span>
               <span
                 className="text-[12px] leading-none"
                 style={{
@@ -64,6 +69,18 @@ export function McqSummary({ set, grounded, width, onRetry, onRegenerate }: Prop
               >
                 {!a ? 'Skipped' : a.correct ? 'Correct' : 'Incorrect'}
               </span>
+              {/* Only on an answered row: there is nothing to clear on a
+                  skipped one, and a dead control reads as a broken one. */}
+              {a && (
+                <button
+                  type="button"
+                  onClick={() => onResetOne(i)}
+                  aria-label={`Reset ${q.kind}`}
+                  className="shrink-0 text-[var(--color-text-muted)] transition-colors duration-100 hover:text-[var(--color-text)]"
+                >
+                  <RotateCcw size={13} />
+                </button>
+              )}
             </li>
           );
         })}

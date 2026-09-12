@@ -1,3 +1,4 @@
+import { RotateCcw } from 'lucide-react';
 import { McqOption } from './McqOption';
 import { KIND_LABELS, type Mcq } from '@/lib/gemini/schema';
 import type { McqAnswer } from '@/lib/mcq/store';
@@ -8,13 +9,16 @@ type Props = {
   /** Measured by the strip, which pages in pixels. */
   readonly width: number;
   readonly onAnswer: (selectedIndex: number) => void;
+  /** Clears this question's answer so it can be attempted again, leaving the
+   *  rest of the set's progress alone. */
+  readonly onReset: () => void;
 };
 
 /**
  * The explanation stays hidden until commit, since it contains the answer, and
  * there is no auto-advance past it.
  */
-export function McqPanel({ question, answer, width, onAnswer }: Props) {
+export function McqPanel({ question, answer, width, onAnswer, onReset }: Props) {
   const committed = answer !== null;
   // Authored kinds fall back to the raw kind name.
   const gloss = KIND_LABELS[question.kind.toLowerCase()];
@@ -56,9 +60,22 @@ export function McqPanel({ question, answer, width, onAnswer }: Props) {
 
       {committed && (
         <div className="mt-3 rounded-[4px] border border-[var(--color-border)] bg-[var(--color-surface)] p-3">
-          <p className="mb-1 text-[12px] leading-none font-medium text-[var(--color-text-muted)]">
-            {answer.correct ? 'Correct' : 'Incorrect'}
-          </p>
+          <div className="mb-1 flex items-center justify-between gap-2">
+            <p className="text-[12px] leading-none font-medium text-[var(--color-text-muted)]">
+              {answer.correct ? 'Correct' : 'Incorrect'}
+            </p>
+            {/* One question, not the set: the reader who wants another go at
+                this one has not asked to lose the others. */}
+            <button
+              type="button"
+              onClick={onReset}
+              aria-label="Try this question again"
+              className="flex items-center gap-1 text-[12px] leading-none text-[var(--color-text-muted)] transition-colors duration-100 hover:text-[var(--color-text)]"
+            >
+              <RotateCcw size={12} />
+              Try again
+            </button>
+          </div>
           <p className="text-[13px] leading-[1.5] text-[var(--color-text)]">{question.explanation}</p>
         </div>
       )}

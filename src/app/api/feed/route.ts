@@ -10,14 +10,18 @@ import { fetchFeedPage } from '@/lib/queries';
  * service-role, so it can only ever return rows the caller may already see.
  */
 const CursorSchema = z.object({
-  sortKey: z.coerce.number().int(),
+  // The shuffle the first page was dealt from. A later page must use the same
+  // one or it would overlap and skip — see 0007_feed_shuffle.sql.
+  seed: z.string().min(1).max(32),
+  key: z.coerce.number().int(),
   id: z.string().uuid(),
 });
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const parsed = CursorSchema.safeParse({
-    sortKey: searchParams.get('sortKey'),
+    seed: searchParams.get('seed'),
+    key: searchParams.get('key'),
     id: searchParams.get('id'),
   });
 

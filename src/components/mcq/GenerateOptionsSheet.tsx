@@ -6,6 +6,7 @@ import { Select } from '../ui/Select';
 import { Button } from '../ui/Button';
 import { useSettings } from '@/lib/settings';
 import { useModels } from '@/lib/gemini/useModels';
+import { DEFAULT_LANGUAGE, languageName } from '@/lib/languages';
 import type { CodeSnippet } from '@/lib/types';
 
 type Props = {
@@ -19,7 +20,7 @@ type Props = {
 
 /**
  * Default language for a problem: the user's preference when this problem
- * offers it, otherwise python3, otherwise the first entry.
+ * offers it, otherwise DEFAULT_LANGUAGE, otherwise the first entry.
  *
  * Computed during render rather than synced into state by an effect — it is
  * derived data, and an effect would cause a cascading render.
@@ -31,7 +32,7 @@ function defaultLanguageFor(
   if (snippets.length === 0) return null;
   const has = (slug: string | null) => !!slug && snippets.some((s) => s.langSlug === slug);
   if (has(preferred)) return preferred;
-  if (has('python3')) return 'python3';
+  if (has(DEFAULT_LANGUAGE)) return DEFAULT_LANGUAGE;
   return snippets[0].langSlug;
 }
 
@@ -87,7 +88,7 @@ export function GenerateOptionsSheet({ open, onClose, snippets, onConfirm }: Pro
           >
             {snippets.map((s) => (
               <option key={s.langSlug} value={s.langSlug}>
-                {s.lang}
+                {languageName(s.langSlug)}
               </option>
             ))}
           </Select>

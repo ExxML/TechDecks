@@ -153,6 +153,26 @@ export class LocalMcqStore implements McqStore {
     return updated;
   }
 
+  async resetAnswer(setId: string, index: number): Promise<McqSet> {
+    const found = findSet(setId);
+    if (!found) throw new Error('set not found');
+    const { contentItemId, sets, index: si } = found;
+    const set = sets[si];
+    if (index < 0 || index >= set.questions.length) throw new Error('bad index');
+
+    // Written as null rather than spliced out: answers are positional, and a
+    // shorter array would re-target every answer after this one.
+    const answers = [...set.answers];
+    if (index < answers.length) answers[index] = null;
+
+    // Clearing one answer un-completes the set, so the completion timestamp
+    // goes with it.
+    const updated: McqSet = { ...set, answers, answered_at: null };
+    sets[si] = updated;
+    writeSets(contentItemId, sets);
+    return updated;
+  }
+
   async remove(setId: string): Promise<void> {
     const found = findSet(setId);
     if (!found) return;

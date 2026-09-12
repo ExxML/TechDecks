@@ -72,46 +72,55 @@ function mapRow(row: RawRow): ContentItem {
   };
 }
 
+/** A fresh shuffle seed. One per feed load — see FeedCursor. */
+export function newFeedSeed(): string {
+  return Math.random().toString(36).slice(2, 10);
+}
+
+/** The row shape `feed_page` returns: ITEM_COLUMNS flat, plus the shuffle key
+ *  and tags already aggregated into a jsonb array. */
+type FeedRow = Omit<RawRow, 'content_item_tags'> & {
+  shuffle_key: number;
+  tags: Array<{ slug: string; name: string }> | null;
+};
+
+function mapFeedRow(row: FeedRow): ContentItem {
+  return {
+    ...mapRow({ ...row, content_item_tags: null }),
+    tags: (row.tags ?? []).map((t) => ({ slug: t.slug, name: t.name })),
+  };
+}
+
 /**
- * One page of the public feed, keyset-paginated on (sort_key, id).
+ * One page of the public feed, keyset-paginated on the shuffle key.
  *
- * `body_html is not null` mirrors the partial index and excludes paid-only
- * rows, which would otherwise render as blank full-screen cards.
+ * The order is a per-load permutation rather than the catalog's numeric one, so
+ * the deck deals differently every refresh. `seed` is what makes that order
+ * stable across the pages of a single load; the RPC carries the rest.
  */
 export async function fetchFeedPage(
   db: SupabaseClient,
   cursor: FeedCursor | null,
+  seed: string = cursor?.seed ?? newFeedSeed(),
   limit = FEED_PAGE_SIZE,
 ): Promise<FeedPage> {
-  let query = db
-    .from('content_items')
-    .select(ITEM_COLUMNS)
-    .eq('visibility', 'public')
-    .not('body_html', 'is', null)
-    .order('sort_key', { ascending: true })
-    .order('id', { ascending: true })
-    .limit(limit + 1); // one extra row tells us whether another page exists
-
-  if (cursor) {
-    // Keyset on a composite key: strictly greater on sort_key, or equal
-    // sort_key with a greater id. PostgREST expresses this as an `or` filter.
-    query = query.or(
-      `sort_key.gt.${cursor.sortKey},and(sort_key.eq.${cursor.sortKey},id.gt.${cursor.id})`,
-    );
-  }
-
-  const { data, error } = await query;
+  const { data, error } = await db.rpc('feed_page', {
+    p_seed: seed,
+    p_after_key: cursor?.key ?? null,
+    p_after_id: cursor?.id ?? null,
+    p_limit: limit + 1, // one extra row tells us whether another page exists
+  });
   if (error) throw new Error(`feed query failed: ${error.message}`);
 
-  const rows = (data ?? []) as unknown as RawRow[];
+  const rows = (data ?? []) as FeedRow[];
   const hasMore = rows.length > limit;
-  const items = rows.slice(0, limit).map(mapRow);
-  const last = items.at(-1);
+  const page = rows.slice(0, limit);
+  const last = page.at(-1);
 
   return {
-    items,
+    items: page.map(mapFeedRow),
     nextCursor:
-      hasMore && last && last.sort_key !== null ? { sortKey: last.sort_key, id: last.id } : null,
+      hasMore && last ? { seed, key: Number(last.shuffle_key), id: last.id } : null,
   };
 }
 
@@ -150,7 +159,7 @@ export async function fetchItemById(db: SupabaseClient, id: string): Promise<Con
 }
 
 /**
- * The feed anchored to one problem: that card first, then the normal feed
+ * The feed anchored to one problem: that card first, then a fresh shuffle
  * continuing after it, so a deep link never dead-ends.
  */
 export async function fetchFeedAnchoredAt(
@@ -158,14 +167,53 @@ export async function fetchFeedAnchoredAt(
   anchor: ContentItem,
   limit = FEED_PAGE_SIZE,
 ): Promise<FeedPage> {
-  // A private authored problem renders alone: it has no sort_key, and running
-  // on into the public feed would put someone's own problem at the head of a
-  // list it is deliberately excluded from.
-  if (anchor.visibility === 'private' || anchor.sort_key === null) {
+  // A private authored problem renders alone: running on into the public feed
+  // would put someone's own problem at the head of a list it is deliberately
+  // excluded from.
+  if (anchor.visibility === 'private') {
     return { items: [anchor], nextCursor: null };
   }
-  const rest = await fetchFeedPage(db, { sortKey: anchor.sort_key, id: anchor.id }, limit - 1);
-  return { items: [anchor, ...rest.items], nextCursor: rest.nextCursor };
+  // Dealt from the head of a new shuffle rather than from the anchor's own
+  // position in it — the anchor is already on screen, and the rest of the deck
+  // is what the reader has not seen.
+  const rest = await fetchFeedPage(db, null, newFeedSeed(), limit - 1);
+  return {
+    items: [anchor, ...rest.items.filter((i) => i.id !== anchor.id)],
+    nextCursor: rest.nextCursor,
+  };
+}
+
+/**
+ * Exactly these problems, in exactly this order.
+ *
+ * Used when the feed is entered from a result list: the reader chose that
+ * order, so paging on must follow it rather than the shuffled catalog. The DB
+ * has no opinion about the order, so the rows come back unordered and are
+ * re-sorted against the requested slugs here.
+ */
+export async function fetchItemsBySlugs(
+  db: SupabaseClient,
+  slugs: readonly string[],
+): Promise<readonly ContentItem[]> {
+  if (slugs.length === 0) return [];
+  const { data, error } = await db
+    .from('content_items')
+    .select(ITEM_COLUMNS)
+    .in('slug', [...slugs])
+    .not('body_html', 'is', null)
+    // The same tiebreak as fetchItemBySlug: a public row wins a slug it shares
+    // with the caller's own authored one.
+    .order('owner_id', { ascending: true, nullsFirst: true });
+
+  if (error) throw new Error(`slug list lookup failed: ${error.message}`);
+
+  const bySlug = new Map<string, ContentItem>();
+  for (const row of (data ?? []) as unknown as RawRow[]) {
+    const item = mapRow(row);
+    if (!bySlug.has(item.slug)) bySlug.set(item.slug, item);
+  }
+  // Slugs that resolved to nothing are dropped rather than rendered blank.
+  return slugs.map((s) => bySlug.get(s)).filter((i): i is ContentItem => i !== undefined);
 }
 
 /* ------------------------------------------------------------------ *

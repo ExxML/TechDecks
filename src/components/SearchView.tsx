@@ -8,7 +8,7 @@ import { CompactListSkeleton } from './CompactListSkeleton';
 import { FilterSheet } from './FilterSheet';
 import { createClient } from '@/lib/supabase/client';
 import { searchContentItems, SEARCH_PAGE_SIZE } from '@/lib/queries';
-import { filtersFromParams, searchHref } from '@/lib/searchParams';
+import { filtersFromParams, paramsFromFilters, searchHref } from '@/lib/searchParams';
 import { filtersAreEmpty, type SearchFilters, type SearchPage } from '@/lib/types';
 
 /**
@@ -114,6 +114,15 @@ export function SearchView() {
   const hits = page?.hits ?? [];
   const showEmpty = page !== null && hits.length === 0;
 
+  // Carried into the feed so it pages through these results in this order. The
+  // filters travel rather than the ids: the feed re-runs the same search
+  // server-side, which is one short URL instead of a list of thirty slugs.
+  const hitHref = useMemo(() => {
+    const p = paramsFromFilters(filters);
+    p.set('from', 'search');
+    return `?${p.toString()}`;
+  }, [filters]);
+
   return (
     <div className="flex h-[calc(100dvh-48px)] flex-col">
       <div className="flex items-center gap-2 border-b border-[var(--color-border)] px-4 py-3">
@@ -193,7 +202,12 @@ export function SearchView() {
           </div>
         ) : (
           <>
-            <CompactList items={hits} emptyMessage="" scrollable={false} />
+            <CompactList
+              items={hits}
+              emptyMessage=""
+              scrollable={false}
+              hrefSuffix={hitHref}
+            />
             {page !== null && hits.length < page.total && (
               <div className="flex justify-center py-4">
                 <button

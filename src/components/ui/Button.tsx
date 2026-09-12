@@ -1,6 +1,6 @@
 import type { ButtonHTMLAttributes, ReactNode } from 'react';
 
-type Variant = 'primary' | 'secondary' | 'ghost';
+type Variant = 'primary' | 'secondary' | 'ghost' | 'danger';
 
 type Props = ButtonHTMLAttributes<HTMLButtonElement> & {
   readonly variant?: Variant;
@@ -18,6 +18,11 @@ const VARIANTS: Record<Variant, string> = {
   ghost:
     'bg-transparent text-[var(--color-text-muted)] ' +
     'hover:text-[var(--color-text)] active:opacity-80 disabled:opacity-40',
+  // Ghost in every respect but colour. Reserved for actions that discard
+  // something the user cannot get back.
+  danger:
+    'bg-transparent text-[var(--color-incorrect)] ' +
+    'hover:opacity-90 active:opacity-80 disabled:opacity-40',
 };
 
 export function Button({ variant = 'primary', className = '', children, ...rest }: Props) {

@@ -179,6 +179,54 @@ body {
 }
 
 /* ==========================================================================
+   Swipe hint — the one-time teach that the feed pages sideways.
+
+   Two animations rather than one: the overlay fades as a whole, and the hand
+   inside it repeats its stroke. Composited properties only (opacity,
+   transform), so the loop never costs a layout while a card is being read.
+   ========================================================================== */
+
+@keyframes swipe-hint-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes swipe-hint-stroke {
+  /* A pause at each end, so the gesture reads as a stroke rather than a drift.
+     The hand travels right-to-left: the next card is the one to its right. */
+  0%,
+  15% {
+    transform: translateX(18px);
+    opacity: 0;
+  }
+  30% {
+    transform: translateX(18px);
+    opacity: 1;
+  }
+  70% {
+    transform: translateX(-18px);
+    opacity: 1;
+  }
+  85%,
+  100% {
+    transform: translateX(-18px);
+    opacity: 0;
+  }
+}
+
+/* Motion is the whole message here, so it is reduced rather than removed: the
+   overlay still appears, the hand simply stops travelling. */
+@media (prefers-reduced-motion: reduce) {
+  .swipe-hint-hand {
+    animation: none;
+  }
+}
+
+/* ==========================================================================
    Problem body — untrusted HTML from LeetCode, already sanitized twice.
 
    Scoped styles rather than a prose plugin: the markup set is small and known

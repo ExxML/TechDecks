@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Layers, Search, Bookmark, Settings } from 'lucide-react';
+import { Layers, Search, History, Bookmark, Settings } from 'lucide-react';
 
 /**
  * Fixed bottom tab bar. Its 48px height is load-bearing: cards are
@@ -11,6 +11,7 @@ import { Layers, Search, Bookmark, Settings } from 'lucide-react';
 const TABS = [
   { href: '/problems', label: 'Problems', Icon: Layers },
   { href: '/search', label: 'Search', Icon: Search },
+  { href: '/history', label: 'History', Icon: History },
   { href: '/bookmarks', label: 'Bookmarks', Icon: Bookmark },
   { href: '/settings', label: 'Settings', Icon: Settings },
 ] as const;

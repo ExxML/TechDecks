@@ -23,8 +23,9 @@ export type FeedSession = {
   readonly index: number;
   /**
    * What produced this list. A session is restored only onto the route that
-   * would otherwise render the same thing: `/problems` for the shuffled feed,
-   * `search:<key>` for one entered from a result list.
+   * would otherwise render the same thing: `feed` for the shuffled feed, and
+   * `<list>:<key>` for one entered from a result list, keyed by that list's
+   * own filters so two different searches never share a session.
    */
   readonly origin: string;
 };

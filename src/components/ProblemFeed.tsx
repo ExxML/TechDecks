@@ -9,6 +9,8 @@ import { shouldIgnoreShortcut } from '@/lib/keyboard';
 import { saveFeedSession, takeFeedSession } from '@/lib/feedSession';
 import { pageTitle } from '@/lib/title';
 import { useUser } from '@/lib/auth';
+import { createClient } from '@/lib/supabase/client';
+import { recordVisit } from '@/lib/queries';
 import type { ContentItem, FeedCursor } from '@/lib/types';
 
 type Props = {
@@ -27,6 +29,10 @@ type Props = {
 const WINDOW = 1;
 /** Load the next page this many cards from the end. */
 const PREFETCH_WITHIN = 3;
+/** How long a card must stay active before it counts as visited. Long enough
+ *  that a flick through the deck records nothing, short enough that reading the
+ *  title and difficulty does. */
+const VISIT_DWELL_MS = 2000;
 
 /**
  * The horizontal card feed.
@@ -145,6 +151,20 @@ export function ProblemFeed({ initialItems, initialCursor, origin, initialIndex 
     }
     document.title = pageTitle(item.title);
   }, [active, items]);
+
+  // Record the visit once the card has been dwelt on. The timer is what keeps
+  // history a record of what was read rather than of what was swiped past; it
+  // restarts on every change of card, so paging through cancels the pending
+  // write. Failures are ignored — a lost history row must not interrupt
+  // reading, and the next visit records it anyway.
+  useEffect(() => {
+    const item = items[active];
+    if (!user || !item) return;
+    const timer = setTimeout(() => {
+      void recordVisit(createClient(), item.id).catch(() => {});
+    }, VISIT_DWELL_MS);
+    return () => clearTimeout(timer);
+  }, [active, items, user]);
 
   // Checkpoint the position for a return to this tab. Written on every change
   // rather than on unmount, which a tab switch does not reliably reach.

@@ -1,6 +1,6 @@
 /**
- * Search: ranking, the trigram fallback, filters, and RLS, against the real
- * database.
+ * Search: ranking, the trigram fallback, filters, scopes, and RLS, against the
+ * real database.
  *
  *   npx tsx scripts/verify-search.mts
  *
@@ -237,6 +237,15 @@ async function main(): Promise<void> {
   const clamped = await searchContentItems(anon, F(), 5000, 0);
   check('an oversized limit is clamped', clamped.hits.length <= 100, `${clamped.hits.length}`);
 
+  // A browse has no relevance to rank by, so it falls through to feed order —
+  // the title tiers are only a tiebreak for a query that was actually given.
+  const keys = clamped.hits.map((h) => h.sort_key ?? Infinity);
+  check(
+    'an unranked browse is in feed order',
+    keys.every((k, i) => i === 0 || keys[i - 1] <= k),
+    keys.slice(0, 5).join(', '),
+  );
+
   console.log('\n=== tag counts ===');
 
   const tagCounts = await fetchTagCounts(anon);
@@ -319,6 +328,8 @@ async function main(): Promise<void> {
 
     const anonMarked = await searchContentItems(anon, F({ bookmarkedOnly: true }));
     check('bookmarked-only is empty for anon', anonMarked.total === 0, `${anonMarked.total}`);
+
+    await scopeChecks(alice, bob, pubId);
   } finally {
     for (const id of created) await admin.from('content_items').delete().eq('id', id);
     await admin.auth.admin.deleteUser(alice.id);
@@ -331,6 +342,89 @@ async function main(): Promise<void> {
     process.exit(1);
   }
   console.log('\nALL CHECKS PASSED');
+}
+
+/* ---------------------------------------------------------------- *
+ * Scopes: /bookmarks and /history are the same search over fewer rows
+ * ---------------------------------------------------------------- */
+async function scopeChecks(
+  alice: { id: string; db: SupabaseClient },
+  bob: { id: string; db: SupabaseClient },
+  markedId: string,
+): Promise<void> {
+  console.log('\n=== scopes: bookmarks and history ===');
+
+  const marked = await searchContentItems(alice.db, F(), 30, 0, 'bookmarks');
+  check(
+    'the bookmarks scope needs no filter to narrow',
+    marked.total === 1 && marked.hits[0]?.id === markedId,
+    `${marked.total} hit(s)`,
+  );
+  check('a bookmark hit carries its listed_at', marked.hits[0]?.listed_at !== null);
+  check(
+    'the bookmarks scope is empty for B',
+    (await searchContentItems(bob.db, F(), 30, 0, 'bookmarks')).total === 0,
+  );
+
+  // Two visits, recorded in a known order, so "most recent first" is testable.
+  const { data: pair } = await admin
+    .from('content_items')
+    .select('id, title')
+    .eq('visibility', 'public')
+    .not('body_html', 'is', null)
+    .limit(2);
+  const [older, newer] = pair as Array<{ id: string; title: string }>;
+
+  await alice.db.rpc('record_visit', { p_item: older.id });
+  const firstAt = (await visitedAt(alice.db, older.id))!;
+  await alice.db.rpc('record_visit', { p_item: newer.id });
+
+  const history = await searchContentItems(alice.db, F(), 30, 0, 'history');
+  check('history returns exactly what was visited', history.total === 2, `${history.total} hit(s)`);
+  check(
+    'history is most-recent-first',
+    history.hits[0]?.id === newer.id && history.hits[1]?.id === older.id,
+  );
+
+  // The whole point of first_visited_at: re-opening must not reorder history.
+  await alice.db.rpc('record_visit', { p_item: older.id });
+  check('a repeat visit does not move the timestamp', (await visitedAt(alice.db, older.id)) === firstAt);
+
+  const reordered = await searchContentItems(alice.db, F(), 30, 0, 'history');
+  check('a repeat visit does not reorder history', reordered.hits[0]?.id === newer.id);
+
+  // A text query outranks visit order, exactly as it does on /search.
+  const searched = await searchContentItems(alice.db, F({ q: older.title }), 30, 0, 'history');
+  check(
+    'a query still ranks within history',
+    searched.hits[0]?.id === older.id,
+    `${searched.total} hit(s)`,
+  );
+
+  check(
+    'history is empty for B',
+    (await searchContentItems(bob.db, F(), 30, 0, 'history')).total === 0,
+  );
+  check(
+    'history is empty for anon',
+    (await searchContentItems(anon, F(), 30, 0, 'history')).total === 0,
+  );
+
+  // record_visit is security definer, so it must pin the row to auth.uid()
+  // rather than to anything the caller supplies.
+  const { count } = await bob.db
+    .from('problem_visits')
+    .select('*', { count: 'exact', head: true });
+  check("B cannot read A's visit rows", count === 0, `${count} row(s)`);
+}
+
+async function visitedAt(db: SupabaseClient, itemId: string): Promise<string | null> {
+  const { data } = await db
+    .from('problem_visits')
+    .select('first_visited_at')
+    .eq('content_item_id', itemId)
+    .single();
+  return (data as { first_visited_at: string } | null)?.first_visited_at ?? null;
 }
 
 await main();

@@ -60,7 +60,8 @@ export function paramsFromFilters(filters: SearchFilters): URLSearchParams {
   return params;
 }
 
-export function searchHref(filters: SearchFilters): string {
+/** The same filters against another list's route. `/search` by default. */
+export function searchHref(filters: SearchFilters, basePath = '/search'): string {
   const qs = paramsFromFilters(filters).toString();
-  return qs ? `/search?${qs}` : '/search';
+  return qs ? `${basePath}?${qs}` : basePath;
 }

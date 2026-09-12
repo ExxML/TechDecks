@@ -18,11 +18,11 @@ export type CompactListItem = {
   readonly sort_key: number | null;
 };
 
-type Props = {
-  readonly items: readonly CompactListItem[];
+type Props<T extends CompactListItem> = {
+  readonly items: readonly T[];
   readonly emptyMessage: string;
   /** Optional action rendered at the right of each row. */
-  readonly renderAction?: (item: CompactListItem) => React.ReactNode;
+  readonly renderAction?: (item: T) => React.ReactNode;
   /** False when the parent owns the scroll container, as /search does. */
   readonly scrollable?: boolean;
   /** Appended to each row's href. /search passes its own params so the feed
@@ -36,13 +36,13 @@ type Props = {
  * A 100dvh snap feed is a poor way to read a result list, so `/bookmarks` and
  * `/search` share this layout instead of reusing ProblemFeed.
  */
-export function CompactList({
+export function CompactList<T extends CompactListItem>({
   items,
   emptyMessage,
   renderAction,
   scrollable = true,
   hrefSuffix = '',
-}: Props) {
+}: Props<T>) {
   if (items.length === 0) {
     // An empty message is only meaningful when this component owns the viewport;
     // /search renders its own richer empty state with a Clear action.

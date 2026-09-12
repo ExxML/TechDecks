@@ -1,13 +1,13 @@
 import { pageTitle } from '@/lib/title';
 import { Suspense } from 'react';
-import { BookmarksView } from '@/components/BookmarksView';
+import { HistoryView } from '@/components/HistoryView';
 
-export const metadata = { title: pageTitle('Bookmarks') };
+export const metadata = { title: pageTitle('History') };
 
-export default function BookmarksPage() {
+export default function HistoryPage() {
   return (
     <Suspense fallback={<div className="h-[calc(100dvh-48px)]" aria-hidden="true" />}>
-      <BookmarksView />
+      <HistoryView />
     </Suspense>
   );
 }

@@ -7,7 +7,7 @@ import { Input } from './ui/Input';
 import { createClient } from '@/lib/supabase/client';
 import { useUser } from '@/lib/auth';
 import { fetchTagCounts } from '@/lib/queries';
-import type { Difficulty, SearchFilters, TagCount } from '@/lib/types';
+import type { Difficulty, SearchFilters, SearchScope, TagCount } from '@/lib/types';
 
 type Props = {
   readonly open: boolean;
@@ -15,6 +15,8 @@ type Props = {
   readonly filters: SearchFilters;
   /** Applying navigates; the sheet never mutates a live result list itself. */
   readonly onApply: (filters: SearchFilters) => void;
+  /** The list being filtered. Only `catalog` offers the bookmarked toggle. */
+  readonly scope?: SearchScope;
 };
 
 const DIFFICULTIES: readonly Difficulty[] = ['easy', 'medium', 'hard'];
@@ -27,7 +29,7 @@ const DIFFICULTY_LABEL: Record<Difficulty, string> = {
 /** Tags are 175 rows; showing all of them buries the rest of the sheet. */
 const TAG_LIMIT = 24;
 
-export function FilterSheet({ open, onClose, filters, onApply }: Props) {
+export function FilterSheet({ open, onClose, filters, onApply, scope = 'catalog' }: Props) {
   const { user } = useUser();
   // Edits a draft and applies on confirm, so a half-built filter set never
   // navigates. The parent remounts this on open, so `filters` seeds the draft
@@ -135,8 +137,9 @@ export function FilterSheet({ open, onClose, filters, onApply }: Props) {
       </section>
 
       {/* Bookmarks are per-user rows behind RLS, so this filter is meaningless
-          without a session and is hidden rather than shown returning nothing. */}
-      {user && (
+          without a session and is hidden rather than shown returning nothing.
+          On /bookmarks it is what the list already is. */}
+      {user && scope === 'catalog' && (
         <section className="mt-4">
           <label className="flex items-center gap-2">
             <input

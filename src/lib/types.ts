@@ -76,6 +76,13 @@ export type FeedPage = {
 };
 
 /**
+ * Which list a search runs over. Not a filter: it is fixed by the route rather
+ * than chosen in the sheet, and it decides the order a result set falls back to
+ * when there is no text query to rank by.
+ */
+export type SearchScope = 'catalog' | 'bookmarks' | 'history';
+
+/**
  * Search filters. Every field is optional; all of them combine with AND, and
  * multiple tags narrow rather than widen.
  */
@@ -124,6 +131,9 @@ export type SearchHit = {
   readonly source_id: string;
   readonly visibility: 'public' | 'private';
   readonly body_format: 'html' | 'markdown';
+  /** When the row entered the list being searched — the visit time on
+   *  `history`, the bookmark time on `bookmarks`. Null on `catalog`. */
+  readonly listed_at: string | null;
 };
 
 export type SearchPage = {

@@ -11,7 +11,7 @@ import {
 import { filtersFromParams } from '@/lib/searchParams';
 import { pageTitle } from '@/lib/title';
 import { ProblemFeed } from '@/components/ProblemFeed';
-import type { FeedPage } from '@/lib/types';
+import type { FeedPage, SearchScope } from '@/lib/types';
 
 export const dynamic = 'force-dynamic';
 
@@ -20,8 +20,13 @@ type Props = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
-/** The result list a search hit was opened from, if any. */
-const FROM_SEARCH = 'search';
+/** `?from=` — which result list a hit was opened from, and the scope to re-run
+ *  it under. Absent or unrecognised means the ordinary shuffled feed. */
+const FROM_SCOPE: Record<string, SearchScope> = {
+  search: 'catalog',
+  bookmarks: 'bookmarks',
+  history: 'history',
+};
 
 /**
  * `notFound()` here rather than only in the page component.
@@ -44,7 +49,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
  * Deep link: renders the feed with that card first and continues into the
  * normal feed after it, so a bookmark or search hit does not dead-end.
  *
- * Opened from a result list (`?from=search` plus that search's own params), the
+ * Opened from a result list (`?from=` plus that list's own filter params), the
  * feed pages through the results in the order they were listed instead — the
  * reader chose that order, and the shuffled catalog is not it.
  */
@@ -56,13 +61,14 @@ export default async function ProblemPage({ params, searchParams }: Props) {
   const item = await fetchItemBySlug(db, slug);
   if (!item) notFound();
 
+  const from = typeof query.from === 'string' ? FROM_SCOPE[query.from] : undefined;
+
   let page: FeedPage;
   let index = 0;
-  const fromSearch =
-    query.from === FROM_SEARCH ? await searchOrder(db, query, slug) : null;
+  const fromList = from ? await searchOrder(db, query, slug, from) : null;
 
-  if (fromSearch) {
-    ({ page, index } = fromSearch);
+  if (fromList) {
+    ({ page, index } = fromList);
   } else {
     page = await fetchFeedAnchoredAt(db, item);
   }
@@ -72,9 +78,9 @@ export default async function ProblemPage({ params, searchParams }: Props) {
       initialItems={page.items}
       initialCursor={page.nextCursor}
       // Distinct per result list, so returning to the Problems tab restores the
-      // search run the reader was in rather than the shuffled feed, and a
-      // different search does not resume the previous one.
-      origin={fromSearch ? `search:${originKey(query)}` : 'feed'}
+      // run the reader was in rather than the shuffled feed, and a different
+      // search does not resume the previous one.
+      origin={fromList ? `${query.from as string}:${originKey(query)}` : 'feed'}
       initialIndex={index}
     />
   );
@@ -92,9 +98,10 @@ async function searchOrder(
   db: Awaited<ReturnType<typeof createClient>>,
   query: Record<string, string | string[] | undefined>,
   slug: string,
+  scope: SearchScope,
 ): Promise<{ page: FeedPage; index: number } | null> {
   const filters = filtersFromParams(new URLSearchParams(flatten(query)));
-  const { hits } = await searchContentItems(db, filters, SEARCH_PAGE_SIZE);
+  const { hits } = await searchContentItems(db, filters, SEARCH_PAGE_SIZE, 0, scope);
   if (!hits.some((h) => h.slug === slug)) return null;
 
   // The hits carry no body, so the rows are re-read in full — in the hit order.

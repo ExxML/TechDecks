@@ -7,6 +7,7 @@ import type {
   LeetCodeMetadata,
   SearchFilters,
   SearchPage,
+  SearchScope,
   Tag,
   TagCount,
 } from './types';
@@ -236,6 +237,14 @@ type SearchRow = {
   body_format: string;
   rank: number;
   total_count: number;
+  listed_at: string | null;
+};
+
+/** How each scope narrows and orders the search. See SearchScope. */
+const SCOPE_ARGS: Record<SearchScope, { bookmarked: boolean; visited: boolean; order: string | null }> = {
+  catalog: { bookmarked: false, visited: false, order: null },
+  bookmarks: { bookmarked: true, visited: false, order: 'bookmarked' },
+  history: { bookmarked: false, visited: true, order: 'visited' },
 };
 
 /**
@@ -249,22 +258,30 @@ type SearchRow = {
  * Empty filter arrays are sent as null rather than `[]`: the SQL treats null as
  * "no filter", and an empty array would otherwise have to mean the same thing
  * in two places.
+ *
+ * `scope` narrows the same query to one of the caller's own lists, which is
+ * what /bookmarks and /history are: the same ranked search, the same filters,
+ * over fewer rows.
  */
 export async function searchContentItems(
   db: SupabaseClient,
   filters: SearchFilters,
   limit = SEARCH_PAGE_SIZE,
   offset = 0,
+  scope: SearchScope = 'catalog',
 ): Promise<SearchPage> {
+  const s = SCOPE_ARGS[scope];
   const { data, error } = await db.rpc('search_content_items', {
     p_query: filters.q.trim() || null,
     p_difficulties: filters.difficulties.length > 0 ? [...filters.difficulties] : null,
     p_tag_slugs: filters.tags.length > 0 ? [...filters.tags] : null,
     p_ac_min: filters.acMin,
     p_ac_max: filters.acMax,
-    p_bookmarked: filters.bookmarkedOnly,
+    p_bookmarked: s.bookmarked || filters.bookmarkedOnly,
     p_limit: limit,
     p_offset: offset,
+    p_visited: s.visited,
+    p_order: s.order,
   });
 
   if (error) throw new Error(`search failed: ${error.message}`);
@@ -287,6 +304,7 @@ export async function searchContentItems(
       source_id: r.source_id,
       visibility: r.visibility === 'private' ? 'private' : 'public',
       body_format: r.body_format === 'markdown' ? 'markdown' : 'html',
+      listed_at: r.listed_at,
     })),
     // count(*) over () repeats the same total on every row, so any row will do.
     total: rows.length > 0 ? Number(rows[0].total_count) : 0,
@@ -374,6 +392,22 @@ export async function removeBookmark(
     .eq('user_id', userId)
     .eq('content_item_id', contentItemId);
   if (error) throw new Error(`could not remove bookmark: ${error.message}`);
+}
+
+/* ------------------------------------------------------------------ *
+ * History
+ * ------------------------------------------------------------------ */
+
+/**
+ * Marks a problem as visited. First write wins, so the stored timestamp is the
+ * first time it was opened; later calls for the same problem are no-ops.
+ *
+ * Called from the feed as the reader dwells on a card, which means it fires
+ * often and must never interrupt reading — failures are swallowed rather than
+ * surfaced, and an anonymous caller is a no-op in the RPC itself.
+ */
+export async function recordVisit(db: SupabaseClient, contentItemId: string): Promise<void> {
+  await db.rpc('record_visit', { p_item: contentItemId });
 }
 
 /* ------------------------------------------------------------------ *

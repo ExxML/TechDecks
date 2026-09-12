@@ -1,14 +1,19 @@
 name: Supabase keep-alive
 
-# Supabase free projects pause after 7 days with NO database activity, and the
-# monthly sync alone does not clear that bar — a 30-day gap pauses the project
-# twice over. This writes one row a week.
+# Supabase pauses Free projects without "sufficient user database activity over
+# the past week", and the monthly sync does not clear that bar. Nor did one row a
+# week: Supabase still sent pause warnings on 2026-08-28 and 2026-09-06 with the
+# weekly heartbeat running green. Their stated bar is a few requests a day, so
+# this runs daily and each run reads as well as writes.
 #
 # The row is `status = 'heartbeat'`, which is what keeps the sync's resume logic
 # from mistaking it for an interrupted run and resuming from a cursor of zero.
+#
+# Scheduled workflows are disabled after 60 days without a repo commit — that is
+# silent, so an untouched repo needs a manual re-enable in the Actions tab.
 on:
   schedule:
-    - cron: '0 3 * * 1'
+    - cron: '0 3 * * *'
   workflow_dispatch:
 
 jobs:

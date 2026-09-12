@@ -90,18 +90,61 @@ export async function updateRun(
   if (error) throw new Error(`sync_runs update failed: ${error.message}`);
 }
 
+/** Heartbeat rows retained by the trailing delete. ~1 month at one run a day. */
+const HEARTBEAT_KEEP = 30;
+
 /**
- * The weekly keep-alive row.
+ * The daily keep-alive.
  *
- * Supabase free projects pause after 7 days with NO database activity, and a
- * monthly sync alone does not clear that bar. `status = 'heartbeat'` is what
- * keeps findResumableRun() from treating this as an interrupted sync.
+ * Supabase pauses Free projects on "sufficient user database activity over the
+ * past week", which a single row a week does not clear — it warns anyway. The
+ * bar is a few requests a day, so this reads as well as writes, and runs daily.
+ * `status = 'heartbeat'` keeps findResumableRun() from seeing an interrupted sync.
  */
 export async function writeHeartbeat(db: SupabaseClient): Promise<void> {
+  const { error: srcError } = await db.from('sources').select('id').eq('id', SOURCE_ID).limit(1);
+  if (srcError) throw new Error(`heartbeat source read failed: ${srcError.message}`);
+
+  const { error: itemError } = await db
+    .from('content_items')
+    .select('id', { count: 'exact', head: true })
+    .eq('source_id', SOURCE_ID);
+  if (itemError) throw new Error(`heartbeat content read failed: ${itemError.message}`);
+
   const { error } = await db
     .from('sync_runs')
     .insert({ source_id: SOURCE_ID, status: 'heartbeat', cursor: 0, processed: 0, failed: 0 });
   if (error) throw new Error(`heartbeat insert failed: ${error.message}`);
+
+  await pruneHeartbeats(db);
+}
+
+/**
+ * Trim heartbeat rows to the newest HEARTBEAT_KEEP. Daily runs would otherwise
+ * grow sync_runs unbounded. Only `status = 'heartbeat'` rows are eligible, so
+ * real sync history is never touched. A failure here is logged, not thrown:
+ * losing the trim must not fail the keep-alive that prevents the pause.
+ */
+async function pruneHeartbeats(db: SupabaseClient): Promise<void> {
+  const { data, error } = await db
+    .from('sync_runs')
+    .select('id')
+    .eq('source_id', SOURCE_ID)
+    .eq('status', 'heartbeat')
+    .order('started_at', { ascending: false })
+    .range(HEARTBEAT_KEEP, HEARTBEAT_KEEP + 999);
+  if (error) {
+    console.warn(`[heartbeat] prune lookup failed: ${error.message}`);
+    return;
+  }
+  if (!data || data.length === 0) return;
+
+  const { error: delError } = await db
+    .from('sync_runs')
+    .delete()
+    .in('id', data.map((r) => r.id as string));
+  if (delError) console.warn(`[heartbeat] prune delete failed: ${delError.message}`);
+  else console.log(`[heartbeat] pruned ${data.length} old row(s)`);
 }
 
 // ===========================================================================

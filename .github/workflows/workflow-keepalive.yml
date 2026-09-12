@@ -1,0 +1,61 @@
+name: Workflow keep-alive
+
+# GitHub disables scheduled workflows in a PUBLIC repository "when no repository
+# activity has occurred in 60 days". That would silently stop keepalive.yml, and
+# the Supabase project it protects would pause a week later with no warning from
+# either side.
+#
+# This repo is private today, where the policy does not apply, so most runs will
+# do nothing. It exists because the failure is silent and only shows up once the
+# repo goes public — cheaper to carry than to remember at the point of flipping.
+#
+# An empty commit to the default branch is what resets the timer; releases, tags,
+# issues and PR comments are all reported not to count.
+on:
+  schedule:
+    # Every 50 days' worth of runs — cron cannot express that, so this fires on
+    # the 1st at 04:00 UTC and the job decides whether a commit is actually due.
+    - cron: '0 4 1 * *'
+  workflow_dispatch:
+
+# Pushing to the default branch needs write access to repo contents.
+permissions:
+  contents: write
+
+# A manual dispatch racing the monthly run would push two commits to the same ref.
+concurrency:
+  group: workflow-keepalive
+  cancel-in-progress: false
+
+jobs:
+  keepalive:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      # Full history: the age check reads the committer date of the last commit.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Push an empty commit if the repo has gone quiet
+        env:
+          # 50 leaves 10 days of margin against the 60-day cutoff, so one skipped
+          # or delayed monthly run cannot let the window lapse.
+          MAX_IDLE_DAYS: '50'
+        run: |
+          set -euo pipefail
+
+          last=$(git log -1 --format=%ct)
+          idle=$(( ( $(date +%s) - last ) / 86400 ))
+
+          if [ "$idle" -lt "$MAX_IDLE_DAYS" ]; then
+            echo "Last commit ${idle}d ago, under ${MAX_IDLE_DAYS}d — nothing to do."
+            exit 0
+          fi
+
+          echo "Last commit ${idle}d ago — committing to reset the timer."
+          git config user.name  'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit --allow-empty -m 'chore: keep scheduled workflows alive'
+          git push origin HEAD:${{ github.ref_name }}

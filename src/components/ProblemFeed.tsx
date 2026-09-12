@@ -58,6 +58,10 @@ export function ProblemFeed({ initialItems, initialCursor, origin, initialIndex 
 
   const rootRef = useRef<HTMLDivElement>(null);
   const [pageSize, setPageSize] = useState(0);
+  // The frame the track is first placed on. Until the width is measured the
+  // offset is 0, so a feed opening anywhere but the first card — a restored
+  // position, a search hit — would otherwise animate in from the head.
+  const [placed, setPlaced] = useState(false);
 
   // Ref mirrors of the paging state, so loadMore can be bound once and still
   // read current values. Synced in an effect, never during render.
@@ -103,6 +107,21 @@ export function ProblemFeed({ initialItems, initialCursor, origin, initialIndex 
       setLoading(false);
     }
   }, []);
+
+  // Re-enable the transition only after the placed frame has been painted, so
+  // the jump to the opening card is not itself animated. Two frames: the first
+  // carries the measured offset, the second is free to transition again.
+  useEffect(() => {
+    if (!pageSize || placed) return;
+    let second = 0;
+    const first = requestAnimationFrame(() => {
+      second = requestAnimationFrame(() => setPlaced(true));
+    });
+    return () => {
+      cancelAnimationFrame(first);
+      cancelAnimationFrame(second);
+    };
+  }, [pageSize, placed]);
 
   // Infinite scroll. Driven by the active index rather than a sentinel: with a
   // windowed track there is no element near the end to observe.
@@ -194,8 +213,10 @@ export function ProblemFeed({ initialItems, initialCursor, origin, initialIndex 
         className="absolute inset-y-0 left-0 will-change-transform"
         style={{
           transform: `translate3d(${pager.offset}px, 0, 0)`,
-          // No transition while the finger is down: the card tracks the drag.
-          transition: pager.dragging ? 'none' : 'transform 260ms cubic-bezier(0.22, 1, 0.36, 1)',
+          // No transition while the finger is down (the card tracks the drag),
+          // nor on the first placement (which is a jump, not a movement).
+          transition:
+            pager.dragging || !placed ? 'none' : 'transform 260ms cubic-bezier(0.22, 1, 0.36, 1)',
           visibility: pageSize ? undefined : 'hidden',
         }}
       >

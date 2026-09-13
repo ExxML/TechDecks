@@ -6,6 +6,7 @@ import { Select } from '../ui/Select';
 import { Button } from '../ui/Button';
 import { useSettings } from '@/lib/settings';
 import { useModels } from '@/lib/gemini/useModels';
+import { useStoredKey } from '@/lib/gemini/useStoredKey';
 import { DEFAULT_LANGUAGE, languageName } from '@/lib/languages';
 import type { CodeSnippet } from '@/lib/types';
 
@@ -38,7 +39,13 @@ function defaultLanguageFor(
 
 export function GenerateOptionsSheet({ open, onClose, snippets, onConfirm }: Props) {
   const { model: defaultModel, language: defaultLanguage, setModel, setLanguage } = useSettings();
-  const { models, loading, error, defaultModelName } = useModels(open);
+  const apiKey = useSettings((s) => s.apiKey);
+  // Either source counts: a pasted key for this tab, or one stored in Vault
+  // that the server reads on our behalf.
+  const vaultKey = useStoredKey();
+  const { models, loading, error, defaultModelName } = useModels(
+    open && (Boolean(apiKey) || vaultKey),
+  );
 
   // Overrides only. Null means "use the derived default", so a changing
   // snippet list or a late-arriving model list is picked up without an effect.
@@ -61,7 +68,11 @@ export function GenerateOptionsSheet({ open, onClose, snippets, onConfirm }: Pro
       <label className="mb-1.5 block text-[12px] text-[var(--color-text-muted)]">Model</label>
       {loading && <p className="text-[13px] text-[var(--color-text-muted)]">Loading models…</p>}
       {error && <p className="text-[13px] text-[var(--color-incorrect)]">{error}</p>}
-      {!loading && !error && (
+      {/* An empty Select would render as a blank, unopenable field. */}
+      {!loading && !error && models.length === 0 && (
+        <p className="text-[13px] text-[var(--color-text-muted)]">No models available.</p>
+      )}
+      {!loading && !error && models.length > 0 && (
         <Select
           value={effectiveModel ?? ''}
           onChange={(e) => setModelOverride(e.target.value)}

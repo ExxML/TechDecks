@@ -38,6 +38,11 @@ type FetchState = {
   readonly error: string | null;
 };
 
+/**
+ * @param enabled whether a key is available at all — a pasted one for this tab
+ *        or one stored in Vault. The caller decides, because a Vault key is
+ *        invisible here: only the server can read it.
+ */
 export function useModels(enabled: boolean) {
   const apiKey = useSettings((s) => s.apiKey);
   // One state object rather than three: the fetch resolves into a single
@@ -51,12 +56,15 @@ export function useModels(enabled: boolean) {
   }));
 
   useEffect(() => {
-    if (!enabled || !apiKey || sessionCache) return;
+    if (!enabled || sessionCache) return;
     let cancelled = false;
 
     void (async () => {
       try {
-        const res = await fetch('/api/gemini/models', { headers: { 'x-gemini-key': apiKey } });
+        // Anonymous only. A signed-in user's key is read server-side from
+        // Vault, so the browser holds none and there is nothing to send.
+        const headers = apiKey ? { 'x-gemini-key': apiKey } : undefined;
+        const res = await fetch('/api/gemini/models', { headers });
         const body: unknown = await res.json().catch(() => null);
         if (!res.ok) {
           const message =
@@ -88,8 +96,8 @@ export function useModels(enabled: boolean) {
 
   return {
     models: state.models,
-    // Nothing is in flight until there is a key and the sheet is open.
-    loading: state.loading && enabled && Boolean(apiKey),
+    // Nothing is in flight until the caller enables the fetch.
+    loading: state.loading && enabled,
     error: state.error,
     defaultModelName: state.models.length > 0 ? pickDefault(state.models) : null,
   };

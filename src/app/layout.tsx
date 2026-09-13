@@ -12,7 +12,11 @@ export const metadata: Metadata = {
   // Declared explicitly so the tab icon is the app's own mark rather than
   // whatever /favicon.ico the host serves by default.
   icons: {
-    icon: [{ url: '/icon.svg', type: 'image/svg+xml' }],
+    icon: [
+      { url: '/icon.svg', type: 'image/svg+xml' },
+      { url: '/icon-192.png', sizes: '192x192', type: 'image/png' },
+      { url: '/icon-512.png', sizes: '512x512', type: 'image/png' },
+    ],
     apple: '/apple-icon.png',
   },
   appleWebApp: {

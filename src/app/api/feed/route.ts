@@ -19,19 +19,23 @@ const CursorSchema = z.object({
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
+  // No cursor asks for an opening page, which is what /problems does: it
+  // prerenders a shell and the feed deals its own first page from here.
+  const wantsFirstPage = !searchParams.has('seed');
+
   const parsed = CursorSchema.safeParse({
     seed: searchParams.get('seed'),
     key: searchParams.get('key'),
     id: searchParams.get('id'),
   });
 
-  if (!parsed.success) {
+  if (!wantsFirstPage && !parsed.success) {
     return NextResponse.json({ error: 'invalid cursor' }, { status: 400 });
   }
 
   try {
     const db = await createClient();
-    const page = await fetchFeedPage(db, parsed.data);
+    const page = await fetchFeedPage(db, parsed.success ? parsed.data : null);
     return NextResponse.json(page);
   } catch {
     // Never surface the raw Postgres error — it can echo query internals.

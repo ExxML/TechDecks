@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { ProblemCard } from './ProblemCard';
 import { Skeleton } from './ui/Skeleton';
 import { SwipeHint } from './SwipeHint';
+import { FeedSkeleton } from './FeedSkeleton';
 import { usePager } from '@/lib/pager';
 import { shouldIgnoreShortcut } from '@/lib/keyboard';
 import { saveFeedSession, takeFeedSession } from '@/lib/feedSession';
@@ -11,11 +12,13 @@ import { pageTitle } from '@/lib/title';
 import { useUser } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/client';
 import { recordVisit } from '@/lib/queries';
-import type { ContentItem, FeedCursor } from '@/lib/types';
+import type { ContentItem, FeedCursor, FeedPage } from '@/lib/types';
 
 type Props = {
-  readonly initialItems: readonly ContentItem[];
-  readonly initialCursor: FeedCursor | null;
+  /** The page to open on. Omitted by /problems, which prerenders a shell and
+   *  lets the feed restore or deal its own — see that route. */
+  readonly initialItems?: readonly ContentItem[];
+  readonly initialCursor?: FeedCursor | null;
   /** Where this list came from, so leaving the tab and coming back restores the
    *  card the reader was on rather than re-dealing. See lib/feedSession.ts. */
   readonly origin: string;
@@ -45,7 +48,12 @@ const VISIT_DWELL_MS = 2000;
  * `dvh` not `vh` — mobile browser chrome resizes vh, which produces a visible
  * jump as the URL bar hides.
  */
-export function ProblemFeed({ initialItems, initialCursor, origin, initialIndex = 0 }: Props) {
+export function ProblemFeed({
+  initialItems = [],
+  initialCursor = null,
+  origin,
+  initialIndex = 0,
+}: Props) {
   // A session saved under this origin wins over the server's page: it is the
   // same list, further along. Read once, at mount.
   const [restored] = useState(() => takeFeedSession(origin));
@@ -62,7 +70,6 @@ export function ProblemFeed({ initialItems, initialCursor, origin, initialIndex 
   // pages away mid-question must find the question still there on return.
   const [questionCards, setQuestionCards] = useState<ReadonlySet<string>>(() => new Set());
 
-  const rootRef = useRef<HTMLDivElement>(null);
   const [pageSize, setPageSize] = useState(0);
   // The frame the track is first placed on. Until the width is measured the
   // offset is 0, so a feed opening anywhere but the first card — a restored
@@ -80,14 +87,21 @@ export function ProblemFeed({ initialItems, initialCursor, origin, initialIndex 
 
   // The card width in px. Measured rather than taken from the viewport: the
   // pager works in pixels, and this is the one number the track depends on.
-  useEffect(() => {
-    const el = rootRef.current;
-    if (!el) return;
-    const measure = () => setPageSize(el.clientWidth);
-    measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(el);
-    return () => observer.disconnect();
+  //
+  // Observed from the ref callback rather than a mount effect: the track does
+  // not exist while the feed is still dealing, and a measurement missed then
+  // would leave it at width zero — rendered, but never visible.
+  const observerRef = useRef<ResizeObserver | null>(null);
+  const measureRef = useCallback((node: HTMLDivElement | null) => {
+    observerRef.current?.disconnect();
+    if (!node) {
+      observerRef.current = null;
+      return;
+    }
+    setPageSize(node.clientWidth);
+    const observer = new ResizeObserver(() => setPageSize(node.clientWidth));
+    observer.observe(node);
+    observerRef.current = observer;
   }, []);
 
   const loadMore = useCallback(async () => {
@@ -113,6 +127,31 @@ export function ProblemFeed({ initialItems, initialCursor, origin, initialIndex 
       setLoading(false);
     }
   }, []);
+
+  // Deals the opening page when nothing arrived with the mount: /problems
+  // prerenders a shell, so an unrestored feed asks for its own. `dealt` also
+  // distinguishes "still loading" from a genuinely empty catalog below.
+  const [dealt, setDealt] = useState(items.length > 0);
+  useEffect(() => {
+    if (dealt) return;
+    let cancelled = false;
+    void fetch('/api/feed')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((page: FeedPage | null) => {
+        if (cancelled) return;
+        if (page) {
+          setItems(page.items);
+          setCursor(page.nextCursor);
+        }
+        setDealt(true);
+      })
+      .catch(() => {
+        if (!cancelled) setDealt(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [dealt]);
 
   // Re-enable the transition only after the placed frame has been painted, so
   // the jump to the opening card is not itself animated. Two frames: the first
@@ -169,6 +208,7 @@ export function ProblemFeed({ initialItems, initialCursor, origin, initialIndex 
   // Checkpoint the position for a return to this tab. Written on every change
   // rather than on unmount, which a tab switch does not reliably reach.
   useEffect(() => {
+    if (items.length === 0) return;
     saveFeedSession({ items, cursor, index: active, origin });
   }, [items, cursor, active, origin]);
 
@@ -196,6 +236,18 @@ export function ProblemFeed({ initialItems, initialCursor, origin, initialIndex 
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [active, items, questionCards, pager]);
 
+  // One stable callback, so React attaches it once per mount rather than
+  // detaching and re-attaching on every render. `pager.ref` is itself stable;
+  // depending on the pager object would not be, as it is rebuilt each render.
+  const pagerRef = pager.ref;
+  const attachRoot = useCallback(
+    (node: HTMLDivElement | null) => {
+      measureRef(node);
+      pagerRef(node);
+    },
+    [measureRef, pagerRef],
+  );
+
   const setInQuestions = useCallback((id: string, on: boolean) => {
     setQuestionCards((prev) => {
       if (prev.has(id) === on) return prev;
@@ -210,12 +262,24 @@ export function ProblemFeed({ initialItems, initialCursor, origin, initialIndex 
   const last = Math.min(items.length - 1, active + WINDOW);
   const window_ = items.slice(first, last + 1);
 
+  // Held by this component rather than the route: /problems is a static shell,
+  // so the deal it waits on and the empty catalog it can end in are both known
+  // here first.
+  if (!dealt) return <FeedSkeleton />;
+
+  if (items.length === 0) {
+    return (
+      <div className="flex h-[calc(100dvh-48px)] items-center justify-center px-6">
+        <p className="text-center text-[14px] text-[var(--color-text-muted)]">
+          No problems yet. Run the seed to load the catalog.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div
-      ref={(node) => {
-        rootRef.current = node;
-        pager.ref(node);
-      }}
+      ref={attachRoot}
       // tabIndex makes the feed focusable so it can be reached by keyboard;
       // the key handler above acts globally once it is.
       tabIndex={0}

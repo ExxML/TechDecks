@@ -1,41 +1,15 @@
-import { Suspense } from 'react';
-import { createClient } from '@/lib/supabase/server';
-import { fetchFeedPage } from '@/lib/queries';
 import { ProblemFeed } from '@/components/ProblemFeed';
-import { FeedSkeleton } from '@/components/FeedSkeleton';
 
 /**
- * The feed is the front door — no landing page, no hero. First page is
- * server-rendered so the first card paints without a client round-trip.
+ * The feed is the front door — no landing page, no hero.
+ *
+ * Prerendered as a static shell. The deck itself is dealt by ProblemFeed,
+ * which restores the one this tab was already reading when there is one: a
+ * server-rendered first page would be discarded in that case, and the tab bar
+ * returns here often enough that waiting on it was the visible cost. Nothing
+ * here is indexable — /problems/[slug] is the shareable route, and it keeps
+ * its own metadata and 404.
  */
-export const dynamic = 'force-dynamic';
-
 export default function ProblemsPage() {
-  // The Suspense boundary lives HERE rather than in a loading.tsx. A loading
-  // file covers the whole /problems segment including /problems/[slug], and its
-  // boundary flushes the response shell before the slug lookup resolves — which
-  // downgrades a missing slug's notFound() to a soft 404 (right page, 200
-  // status). Scoping it to this route keeps the skeleton without that cost.
-  return (
-    <Suspense fallback={<FeedSkeleton />}>
-      <FeedContents />
-    </Suspense>
-  );
-}
-
-async function FeedContents() {
-  const db = await createClient();
-  const page = await fetchFeedPage(db, null);
-
-  if (page.items.length === 0) {
-    return (
-      <div className="flex h-[calc(100dvh-48px)] items-center justify-center px-6">
-        <p className="text-center text-[14px] text-[var(--color-text-muted)]">
-          No problems yet. Run the seed to load the catalog.
-        </p>
-      </div>
-    );
-  }
-
-  return <ProblemFeed initialItems={page.items} initialCursor={page.nextCursor} origin="feed" />;
+  return <ProblemFeed origin="feed" />;
 }

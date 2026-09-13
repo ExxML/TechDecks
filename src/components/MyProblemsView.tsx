@@ -21,6 +21,10 @@ import type { ContentItem } from '@/lib/types';
 
 type Mode = { readonly kind: 'list' } | { readonly kind: 'create' } | { readonly kind: 'edit'; readonly item: ContentItem };
 
+/** The last list fetched, kept across mounts so a revisit paints before the
+ *  refetch lands. Cleared on sign-out, as these rows are one user's. */
+let lastItems: readonly ContentItem[] | null = null;
+
 /**
  * `/my` — the author's own problems. Private to them by RLS, not by this UI:
  * `ci_read` restricts the query, and a second user calling the API directly
@@ -30,16 +34,20 @@ type Mode = { readonly kind: 'list' } | { readonly kind: 'create' } | { readonly
  */
 export function MyProblemsView() {
   const { user, loading: authLoading } = useUser();
-  const [items, setItems] = useState<readonly ContentItem[] | null>(null);
+  const [items, setItems] = useState<readonly ContentItem[] | null>(lastItems);
   const [mode, setMode] = useState<Mode>({ kind: 'list' });
   const [pendingDelete, setPendingDelete] = useState<ContentItem | null>(null);
   const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user) {
+      if (!authLoading) lastItems = null;
+      return;
+    }
     let cancelled = false;
     void fetchMyProblems(createClient())
       .then((rows) => {
+        lastItems = rows;
         if (!cancelled) setItems(rows);
       })
       .catch(() => {
@@ -48,7 +56,7 @@ export function MyProblemsView() {
     return () => {
       cancelled = true;
     };
-  }, [user]);
+  }, [user, authLoading]);
 
   const loading = authLoading || (user !== null && items === null);
 
@@ -66,7 +74,8 @@ export function MyProblemsView() {
   }
 
   const reload = async () => {
-    setItems(await fetchMyProblems(createClient()));
+    lastItems = await fetchMyProblems(createClient());
+    setItems(lastItems);
   };
 
   const save = async (input: AuthoredProblemInput) => {

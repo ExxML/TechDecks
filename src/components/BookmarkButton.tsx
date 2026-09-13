@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { Bookmark } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useUser } from '@/lib/auth';
-import { addBookmark, removeBookmark, fetchBookmarkedIds } from '@/lib/queries';
+import { addBookmark, removeBookmark, clearSearchCache, fetchBookmarkedIds } from '@/lib/queries';
 
 type Props = {
   readonly contentItemId: string;
@@ -57,6 +57,9 @@ export function BookmarkButton({ contentItemId, initialBookmarked, onChange }: P
       const db = createClient();
       if (next) await addBookmark(db, user.id, contentItemId);
       else await removeBookmark(db, user.id, contentItemId);
+      // This row's membership of /bookmarks just changed, so a cached page of
+      // that list would be one row out of date.
+      clearSearchCache();
       onChange?.(next);
     } catch {
       setBookmarked(!next); // the write failed; do not claim it succeeded

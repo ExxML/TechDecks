@@ -7,7 +7,7 @@ import { CompactList } from './CompactList';
 import { CompactListSkeleton } from './CompactListSkeleton';
 import { FilterSheet } from './FilterSheet';
 import { createClient } from '@/lib/supabase/client';
-import { searchContentItems, SEARCH_PAGE_SIZE } from '@/lib/queries';
+import { cachedSearchPage, searchContentItems, SEARCH_PAGE_SIZE } from '@/lib/queries';
 import { filtersFromParams, paramsFromFilters, searchHref } from '@/lib/searchParams';
 import {
   filtersAreEmpty,
@@ -51,7 +51,13 @@ export function ResultsView({ scope, basePath, from, emptyMessage, renderAction 
   const filters = useMemo(() => filtersFromParams(new URLSearchParams(params.toString())), [params]);
 
   const [text, setText] = useState(filters.q);
-  const [page, setPage] = useState<SearchPage | null>(null);
+  // Held with the query it came from, so a result is never shown under filters
+  // it does not answer — the fetch below is in flight while they differ.
+  const [fetched, setFetched] = useState<{
+    readonly page: SearchPage;
+    readonly filters: SearchFilters;
+    readonly scope: SearchScope;
+  } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showFilters, setShowFilters] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -84,18 +90,25 @@ export function ResultsView({ scope, basePath, from, emptyMessage, renderAction 
     void searchContentItems(createClient(), filters, SEARCH_PAGE_SIZE, 0, scope)
       .then((result) => {
         if (cancelled) return;
-        setPage(result);
+        setFetched({ page: result, filters, scope });
         setError(null);
       })
       .catch(() => {
         if (cancelled) return;
-        setPage({ hits: [], total: 0 });
+        setFetched({ page: { hits: [], total: 0 }, filters, scope });
         setError('Search is unavailable right now.');
       });
     return () => {
       cancelled = true;
     };
   }, [filters, scope]);
+
+  // This query's own result once it lands, and until then whatever it last
+  // returned — which is what lets a revisited list paint before the refetch.
+  const page =
+    fetched !== null && fetched.filters === filters && fetched.scope === scope
+      ? fetched.page
+      : cachedSearchPage(filters, scope);
 
   const loadMore = async () => {
     if (!page || loadingMore || page.hits.length >= page.total) return;
@@ -108,14 +121,15 @@ export function ResultsView({ scope, basePath, from, emptyMessage, renderAction 
         page.hits.length,
         scope,
       );
-      setPage((prev) => {
-        if (!prev) return next;
-        // Guard against a duplicate page if two loads race.
-        const seen = new Set(prev.hits.map((h) => h.id));
-        return {
-          hits: [...prev.hits, ...next.hits.filter((h) => !seen.has(h.id))],
+      // Guard against a duplicate page if two loads race.
+      const seen = new Set(page.hits.map((h) => h.id));
+      setFetched({
+        page: {
+          hits: [...page.hits, ...next.hits.filter((h) => !seen.has(h.id))],
           total: next.total,
-        };
+        },
+        filters,
+        scope,
       });
     } catch {
       // Leave the page intact; the button stays available for a retry.
@@ -130,12 +144,14 @@ export function ResultsView({ scope, basePath, from, emptyMessage, renderAction 
   };
 
   /** Drops a row from the rendered page, for an action that unlists it. */
-  const drop = (id: string) =>
-    setPage((prev) =>
-      prev === null
-        ? prev
-        : { hits: prev.hits.filter((h) => h.id !== id), total: Math.max(0, prev.total - 1) },
-    );
+  const drop = (id: string) => {
+    if (page === null) return;
+    setFetched({
+      page: { hits: page.hits.filter((h) => h.id !== id), total: Math.max(0, page.total - 1) },
+      filters,
+      scope,
+    });
+  };
 
   const activeFilterCount =
     filters.difficulties.length +

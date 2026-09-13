@@ -248,6 +248,46 @@ const SCOPE_ARGS: Record<SearchScope, { bookmarked: boolean; visited: boolean; o
 };
 
 /**
+ * The most recent first page for each scope+filter combination.
+ *
+ * A result list is remounted from scratch on every navigation to it, and the
+ * RPC behind it takes a few hundred milliseconds — long enough that returning
+ * to a tab showed a skeleton over results that had not changed. Keeping the
+ * last page lets the list paint at once while the refetch confirms it.
+ *
+ * First pages only: later pages are appended by "Show more" and are dropped
+ * with the rest of the view, as re-entering a list starts it from the top.
+ */
+const firstPages = new Map<string, SearchPage>();
+
+/** Stable across key order, so the same filters always hash to one entry. */
+function searchKey(filters: SearchFilters, scope: SearchScope): string {
+  return JSON.stringify([
+    scope,
+    filters.q.trim(),
+    [...filters.difficulties].sort(),
+    [...filters.tags].sort(),
+    filters.acMin,
+    filters.acMax,
+    filters.bookmarkedOnly,
+  ]);
+}
+
+/** The last page seen for these filters, or null if this list is new. */
+export function cachedSearchPage(filters: SearchFilters, scope: SearchScope): SearchPage | null {
+  return firstPages.get(searchKey(filters, scope)) ?? null;
+}
+
+/**
+ * Drops every cached page. Called when the rows themselves change underneath
+ * the cache — a sign-in swaps whose bookmarks and history these are, and a
+ * bookmark toggle changes which rows /bookmarks returns.
+ */
+export function clearSearchCache(): void {
+  firstPages.clear();
+}
+
+/**
  * Ranked search with filters.
  *
  * The RPC is `security invoker`, so RLS decides the result set: an anonymous
@@ -287,7 +327,7 @@ export async function searchContentItems(
   if (error) throw new Error(`search failed: ${error.message}`);
 
   const rows = (data ?? []) as SearchRow[];
-  return {
+  const page: SearchPage = {
     hits: rows.map((r) => ({
       id: r.id,
       slug: r.slug,
@@ -309,6 +349,9 @@ export async function searchContentItems(
     // count(*) over () repeats the same total on every row, so any row will do.
     total: rows.length > 0 ? Number(rows[0].total_count) : 0,
   };
+
+  if (offset === 0) firstPages.set(searchKey(filters, scope), page);
+  return page;
 }
 
 /** Tags that actually have matchable problems, most-used first. */

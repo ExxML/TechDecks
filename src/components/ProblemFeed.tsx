@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ProblemCard } from './ProblemCard';
 import { Skeleton } from './ui/Skeleton';
-import { SwipeHint } from './SwipeHint';
 import { FeedSkeleton } from './FeedSkeleton';
 import { usePager } from '@/lib/pager';
 import { shouldIgnoreShortcut } from '@/lib/keyboard';
@@ -61,9 +60,7 @@ export function ProblemFeed({
   const [cursor, setCursor] = useState<FeedCursor | null>(restored?.cursor ?? initialCursor);
   const [loading, setLoading] = useState(false);
   const [active, setActive] = useState(restored?.index ?? initialIndex);
-  // `authLoading` gates the hint: `user` is null before the session resolves,
-  // and a signed-in reader must not be taught the gesture even briefly.
-  const { user, loading: authLoading } = useUser();
+  const { user } = useUser();
 
   // Which cards are showing questions. Held here rather than in ProblemCard
   // because a windowed card unmounts as it leaves the window, and a reader who
@@ -337,7 +334,6 @@ export function ProblemFeed({
 
       {/* Only while the reader is still on the card the feed opened with: the
           first swipe is what the hint asks for, and it answers itself. */}
-      <SwipeHint show={!authLoading && user === null && active === 0 && items.length > 1} />
 
       {!cursor && !loading && active === items.length - 1 && (
         <p className="pointer-events-none absolute inset-x-0 bottom-2 text-center text-[13px] text-[var(--color-text-muted)]">

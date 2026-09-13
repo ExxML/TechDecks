@@ -21,7 +21,7 @@ const VARIANTS: Record<Variant, string> = {
   // Ghost in every respect but colour. Reserved for actions that discard
   // something the user cannot get back.
   danger:
-    'bg-transparent text-[var(--color-incorrect)] ' +
+    'bg-transparent text-[var(--color-danger)] ' +
     'hover:opacity-90 active:opacity-80 disabled:opacity-40',
 };
 

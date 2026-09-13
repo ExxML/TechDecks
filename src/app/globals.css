@@ -22,6 +22,11 @@
   --color-correct: #00b8a3;
   --color-incorrect: #ff375f;
 
+  /* Warmer, brick-leaning red for destructive buttons (sign out, delete key).
+     Separate from --color-incorrect so quiz marking and form errors keep the
+     sharper crimson that reads as "wrong". */
+  --color-danger: #e8604c;
+
   /* Hover/active fills for surface-alt controls. Tokens rather than literals
      because the direction inverts between themes: dark surfaces lighten on
      hover, light surfaces darken. */
@@ -104,6 +109,7 @@
     --color-hard: #d61f42;
     --color-correct: #00806f;
     --color-incorrect: #d61f42;
+    --color-danger: #b8422f;
     --color-correct-wash: rgba(0, 128, 111, 0.1);
     --color-incorrect-wash: rgba(214, 31, 66, 0.1);
   }
@@ -123,6 +129,7 @@
   --color-hard: #d61f42;
   --color-correct: #00806f;
   --color-incorrect: #d61f42;
+  --color-danger: #b8422f;
   --color-correct-wash: rgba(0, 128, 111, 0.1);
   --color-incorrect-wash: rgba(214, 31, 66, 0.1);
 }

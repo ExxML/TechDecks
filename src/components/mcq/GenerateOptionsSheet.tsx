@@ -44,7 +44,7 @@ export function GenerateOptionsSheet({ open, onClose, snippets, onConfirm }: Pro
   // that the server reads on our behalf.
   const vaultKey = useStoredKey();
   const { models, loading, error, defaultModelName } = useModels(
-    open && (Boolean(apiKey) || vaultKey),
+    open && (Boolean(apiKey) || vaultKey === true),
   );
 
   // Overrides only. Null means "use the derived default", so a changing

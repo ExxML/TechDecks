@@ -91,8 +91,10 @@ export function McqController({ item, active, onEnterQuestions, inQuestions, onN
   }, [item.id, version, globalVersion, store]);
 
   // Either source counts: a pasted key for this tab, or one stored in Vault
-  // that the server will read on our behalf.
+  // that the server will read on our behalf. Null while the Vault check is
+  // still out — unknown, not absent.
   const canGenerate = Boolean(apiKey) || vaultKey;
+  const keyless = canGenerate === false;
 
   const activeSet = sets.find((s) => s.id === activeSetId) ?? null;
 
@@ -120,7 +122,7 @@ export function McqController({ item, active, onEnterQuestions, inQuestions, onN
   // Tapping Generate with no key opens the dialog inline, then proceeds with
   // the generation the user originally asked for.
   const requestGenerate = () => {
-    if (!canGenerate) setShowKeyDialog(true);
+    if (keyless) setShowKeyDialog(true);
     else setShowOptions(true);
   };
 
@@ -195,7 +197,7 @@ export function McqController({ item, active, onEnterQuestions, inQuestions, onN
 
           {sets.length === 0 && (
             <p className="mt-1.5 text-center text-[13px] leading-none text-[var(--color-text-muted)]">
-              {hydrated && !canGenerate
+              {hydrated && keyless
                 ? 'Needs a Gemini API key.'
                 : `${kinds.length} question${kinds.length === 1 ? '' : 's'} · ${kinds.map(titleCase).join(', ')}`}
             </p>

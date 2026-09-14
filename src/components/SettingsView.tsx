@@ -28,8 +28,11 @@ export function SettingsView() {
   // Re-checked whenever the key dialog closes.
   const vaultKey = useStoredKey(showKeyDialog);
   const [deleted, setDeleted] = useState(false);
-  const storedKey = vaultKey && !deleted;
-  const canLoadModels = Boolean(apiKey) || storedKey;
+  // Null until the Vault check answers. Treated as "a key may exist" below, so
+  // nothing renders the keyless state and then corrects itself.
+  const storedKey = deleted ? false : vaultKey;
+  const pending = storedKey === null;
+  const canLoadModels = Boolean(apiKey) || storedKey === true;
   const { models, loading, error } = useModels(canLoadModels);
 
   useEffect(() => hydrate(), [hydrate]);
@@ -67,7 +70,7 @@ export function SettingsView() {
       <section className="mt-6">
         <h2 className="text-[13px] font-medium text-[var(--color-text)]">Gemini API key</h2>
         <p className="mt-1 text-[13px] leading-[1.5] text-[var(--color-text-muted)]">
-          {!hydrated
+          {!hydrated || pending
             ? ' '
             : storedKey
               ? 'A key is saved to your account.'
@@ -77,13 +80,14 @@ export function SettingsView() {
         </p>
         <div className="mt-2 flex gap-2">
           <Button
-            variant={apiKey || storedKey ? 'secondary' : 'primary'}
+            variant={apiKey || storedKey !== false ? 'secondary' : 'primary'}
+            disabled={pending}
             onClick={() => setShowKeyDialog(true)}
           >
-            {apiKey || storedKey ? 'Replace key' : 'Add key'}
+            {apiKey || storedKey !== false ? 'Replace key' : 'Add key'}
           </Button>
           {/* One-click delete. Drops the vault secret, not just the reference. */}
-          {storedKey && (
+          {storedKey === true && (
             <Button
               variant="danger"
               disabled={clearing}
@@ -156,7 +160,7 @@ export function SettingsView() {
 
       <section className="mt-6 border-t border-[var(--color-border)] pt-4">
         <p className="text-[12px] leading-[1.5] text-[var(--color-text-muted)]">
-          {storedKey
+          {storedKey !== false
             ? 'Your key is stored encrypted and is read only by this site’s server, on each generation. It is never sent to your browser and never written to logs. Whoever operates this site can recover it, so use a dedicated key you can revoke.'
             : 'Your key is kept in this tab only and is sent to Google through this site’s server on each generation. It is never stored on the server or written to logs.'}
         </p>

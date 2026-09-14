@@ -3,6 +3,7 @@ import './globals.css';
 import { TabBar } from '@/components/TabBar';
 import { MigrationGate } from '@/components/MigrationGate';
 import { THEME_INIT_SCRIPT } from '@/lib/theme';
+import { RESHUFFLE_INIT_SCRIPT } from '@/lib/reshuffle';
 import { APP_NAME } from '@/lib/title';
 
 export const metadata: Metadata = {
@@ -48,6 +49,9 @@ export default function RootLayout({ children }: LayoutProps<'/'>) {
             attribute is written by this script, so the server-rendered HTML
             never matches it — hence suppressHydrationWarning on <html>. */}
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+        {/* Sends a refreshed problem URL to /problems for a fresh deal, before
+            paint, so the card being left behind never renders. */}
+        <script dangerouslySetInnerHTML={{ __html: RESHUFFLE_INIT_SCRIPT }} />
       </head>
       <body>
         {/* The tab bar is fixed and 48px; every scroll container is sized

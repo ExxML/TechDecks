@@ -386,12 +386,14 @@ async function scopeChecks(
     history.hits[0]?.id === newer.id && history.hits[1]?.id === older.id,
   );
 
-  // The whole point of first_visited_at: re-opening must not reorder history.
+  // The whole point of last_visited_at: re-opening moves a problem back to the
+  // top, and replaces its row rather than adding one.
   await alice.db.rpc('record_visit', { p_item: older.id });
-  check('a repeat visit does not move the timestamp', (await visitedAt(alice.db, older.id)) === firstAt);
+  check('a repeat visit moves the timestamp', (await visitedAt(alice.db, older.id)) !== firstAt);
 
   const reordered = await searchContentItems(alice.db, F(), 30, 0, 'history');
-  check('a repeat visit does not reorder history', reordered.hits[0]?.id === newer.id);
+  check('a repeat visit reorders history', reordered.hits[0]?.id === older.id);
+  check('a repeat visit does not add a row', reordered.total === 2, `${reordered.total} hit(s)`);
 
   // A text query outranks visit order, exactly as it does on /search.
   const searched = await searchContentItems(alice.db, F({ q: older.title }), 30, 0, 'history');
@@ -421,10 +423,10 @@ async function scopeChecks(
 async function visitedAt(db: SupabaseClient, itemId: string): Promise<string | null> {
   const { data } = await db
     .from('problem_visits')
-    .select('first_visited_at')
+    .select('last_visited_at')
     .eq('content_item_id', itemId)
     .single();
-  return (data as { first_visited_at: string } | null)?.first_visited_at ?? null;
+  return (data as { last_visited_at: string } | null)?.last_visited_at ?? null;
 }
 
 await main();

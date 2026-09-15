@@ -21,8 +21,8 @@ type Props = {
   /** Where this list came from, so leaving the tab and coming back restores the
    *  card the reader was on rather than re-dealing. See lib/feedSession.ts. */
   readonly origin: string;
-  /** Index to open on. Non-zero when the feed is entered from a result list at
-   *  a hit partway down it. */
+  /** Index to open on, set whenever the route names a card. Omitted by
+   *  /problems, which has no slug and opens wherever the reader left off. */
   readonly initialIndex?: number;
 };
 
@@ -51,15 +51,18 @@ export function ProblemFeed({
   initialItems = [],
   initialCursor = null,
   origin,
-  initialIndex = 0,
+  initialIndex,
 }: Props) {
   // A session saved under this origin wins over the server's page: it is the
-  // same list, further along. Read once, at mount.
-  const [restored] = useState(() => takeFeedSession(origin));
+  // same list, further along. Read once, at mount — and only when the route
+  // names no card of its own, since every hit of one result list shares an
+  // origin: restoring over a named card would reopen the hit read first
+  // rather than the one just tapped.
+  const [restored] = useState(() => (initialIndex === undefined ? takeFeedSession(origin) : null));
   const [items, setItems] = useState<readonly ContentItem[]>(restored?.items ?? initialItems);
   const [cursor, setCursor] = useState<FeedCursor | null>(restored?.cursor ?? initialCursor);
   const [loading, setLoading] = useState(false);
-  const [active, setActive] = useState(restored?.index ?? initialIndex);
+  const [active, setActive] = useState(restored?.index ?? initialIndex ?? 0);
   const { user } = useUser();
 
   // Which cards are showing questions. Held here rather than in ProblemCard

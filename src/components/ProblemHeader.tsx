@@ -47,6 +47,7 @@ export function ProblemHeader({ item }: { readonly item: ContentItem }) {
               <Link
                 href={searchHref({ ...EMPTY_FILTERS, tags: [t.slug] })}
                 className="block rounded-[4px] border border-[var(--color-border)] bg-[var(--color-surface-alt)] px-1.5 py-0.5 text-[12px] leading-none text-[var(--color-text-muted)] transition-colors duration-100 hover:text-[var(--color-text)]"
+                draggable={false}
               >
                 {t.name}
               </Link>

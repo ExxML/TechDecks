@@ -36,6 +36,7 @@ export function TabBar() {
             aria-current={active ? 'page' : undefined}
             className="flex flex-1 flex-col items-center justify-center gap-1 transition-colors duration-100"
             style={{ color: active ? 'var(--color-accent)' : 'var(--color-text-muted)' }}
+            draggable={false}
           >
             <Icon size={16} strokeWidth={2} aria-hidden="true" />
             <span className="text-[12px] leading-none">{label}</span>

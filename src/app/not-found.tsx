@@ -16,6 +16,7 @@ export default function NotFound() {
       <Link
         href="/problems"
         className="text-[13px] text-[var(--color-accent)] underline underline-offset-2"
+        draggable={false}
       >
         Back to problems
       </Link>

@@ -138,7 +138,11 @@ export function MyProblemsView() {
               key={item.id}
               className="flex items-center gap-3 border-b border-[var(--color-border)] py-3"
             >
-              <Link href={`/problems/${item.slug}`} className="flex min-w-0 flex-1 flex-col gap-1">
+              <Link
+                href={`/problems/${item.slug}`}
+                className="flex min-w-0 flex-1 flex-col gap-1"
+                draggable={false}
+              >
                 <span className="truncate text-[14px] leading-none text-[var(--color-text)]">
                   {item.title}
                 </span>

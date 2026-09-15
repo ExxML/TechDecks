@@ -61,6 +61,7 @@ export function SettingsView() {
           <Link
             href="/my"
             className="inline-flex min-h-[40px] items-center justify-center gap-2 rounded-[4px] border border-[var(--color-border)] bg-[var(--color-surface-alt)] px-4 text-[14px] leading-none text-[var(--color-text)] transition-colors duration-100 hover:bg-[var(--color-surface-hover)]"
+            draggable={false}
           >
             Open my problems
           </Link>

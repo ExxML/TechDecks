@@ -368,6 +368,17 @@ async function main(): Promise<void> {
     console.log(`  PASS  anon cannot execute get_gemini_key_for (${vaultErr.code ?? ''} ${vaultErr.message})`);
   }
 
+  // get_gemini_key() is granted to `authenticated` so the server can read a
+  // stored key on any device. Signed out there is no auth.uid(), so it must
+  // still refuse rather than fall back to some other row.
+  const { error: ownVaultErr } = await anon.rpc('get_gemini_key');
+  if (!ownVaultErr) {
+    failures++;
+    console.log('  *** FAIL *** anon can execute get_gemini_key');
+  } else {
+    console.log(`  PASS  anon cannot execute get_gemini_key (${ownVaultErr.code ?? ''} ${ownVaultErr.message})`);
+  }
+
   const { error: setErr } = await anon.rpc('set_gemini_key', { p_key: 'x'.repeat(40) });
   console.log(
     setErr

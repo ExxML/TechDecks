@@ -198,6 +198,15 @@ async function main(): Promise<void> {
     const { data: bobRead } = await admin.rpc('get_gemini_key_for', { p_user: bob.id });
     check('a user without a key returns null', bobRead === null);
 
+    // The session-scoped wrapper is what the deployed server calls, so a stored
+    // key works on every device. It takes no parameter: A gets A's key, and B
+    // gets B's own null rather than A's plaintext.
+    const { data: aliceOwn } = await alice.db.rpc('get_gemini_key');
+    check('a user can read their OWN key via get_gemini_key', aliceOwn === KEY_A);
+
+    const { data: bobOwn } = await bob.db.rpc('get_gemini_key');
+    check('get_gemini_key never returns another user’s key', bobOwn === null);
+
     // Rotation must delete the old secret, not orphan it.
     const KEY_B = 'AIza-test-key-alice-rotated-999';
     await alice.db.rpc('set_gemini_key', { p_key: KEY_B });
@@ -229,6 +238,9 @@ async function main(): Promise<void> {
       );
     const { data: cleared } = await admin.rpc('get_gemini_key_for', { p_user: alice.id });
     check('reading after delete returns null', cleared === null);
+
+    const { data: clearedOwn } = await alice.db.rpc('get_gemini_key');
+    check('the session-scoped read is null after delete too', clearedOwn === null);
 
     console.log('\n=== batch-trim determinism (identical created_at) ===');
     const stamp = new Date().toISOString();

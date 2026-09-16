@@ -40,7 +40,7 @@ export function DifficultyBadge({ difficulty }: { readonly difficulty: Difficult
   if (!difficulty) return null;
   return (
     <span
-      className="text-[12px] leading-none font-medium"
+      className="text-[12px] leading-tight font-medium"
       style={{ color: DIFFICULTY_COLOR[difficulty] }}
     >
       {DIFFICULTY_LABEL[difficulty]}

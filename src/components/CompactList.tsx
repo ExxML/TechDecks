@@ -64,16 +64,18 @@ export function CompactList<T extends CompactListItem>({
               className="flex min-w-0 flex-1 flex-col gap-1"
               draggable={false}
             >
-              <span className="truncate text-[14px] leading-none text-[var(--color-text)]">
+              {/* leading-normal, not leading-none: `truncate` clips overflow, and a
+                  line box tight to the cap height cuts descenders off. */}
+              <span className="truncate text-[14px] leading-normal text-[var(--color-text)]">
                 {item.sort_key !== null && (
                   <span className="text-[var(--color-text-muted)]">{item.sort_key}. </span>
                 )}
                 {item.title}
               </span>
-              <span className="flex items-center gap-2 leading-none">
+              <span className="flex items-center gap-2 leading-tight">
                 <DifficultyBadge difficulty={item.difficulty} />
                 {typeof item.metadata.acRate === 'number' && (
-                  <span className="text-[12px] leading-none text-[var(--color-text-muted)]">
+                  <span className="text-[12px] leading-tight text-[var(--color-text-muted)]">
                     {item.metadata.acRate.toFixed(1)}%
                   </span>
                 )}

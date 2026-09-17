@@ -270,7 +270,6 @@ type SearchRow = {
   visibility: string;
   owner_id: string | null;
   body_format: string;
-  rank: number;
   total_count: number;
   listed_at: string | null;
 };
@@ -324,7 +323,7 @@ export function clearSearchCache(): void {
 }
 
 /**
- * Ranked search with filters.
+ * Title search with filters.
  *
  * The RPC is `security invoker`, so RLS decides the result set: an anonymous
  * caller sees the public catalog, a signed-in one additionally sees their own
@@ -336,7 +335,7 @@ export function clearSearchCache(): void {
  * in two places.
  *
  * `scope` narrows the same query to one of the caller's own lists, which is
- * what /bookmarks and /history are: the same ranked search, the same filters,
+ * what /bookmarks and /history are: the same title search, the same filters,
  * over fewer rows.
  */
 export async function searchContentItems(
@@ -587,7 +586,7 @@ function authoredMetadata(input: AuthoredProblemInput): Record<string, unknown> 
   return {
     kinds: input.kinds,
     language: input.language,
-    // Denormalized for the generated search_vector.
+    // The tag list denormalized onto the row itself.
     topic_text: tagSlugs(input.tags).join(' '),
   };
 }

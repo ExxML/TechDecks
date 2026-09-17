@@ -74,8 +74,8 @@ export type ShuffleCursor = {
 /**
  * Where a result-list feed has reached in its search.
  *
- * Offset paging, unlike the shuffled feed: a ranked search has no stable key to
- * seek on, and it is the same paging the result list itself uses, so the feed
+ * Offset paging, unlike the shuffled feed: a relevance order has no stable key
+ * to seek on, and it is the same paging the result list itself uses, so the feed
  * continues the list rather than re-deriving it. `params` is the list's own
  * filter query string, which is what makes the order reproducible server-side.
  */

@@ -34,7 +34,7 @@ type Props = {
 /**
  * A filterable result list: `/search`, `/bookmarks`, `/history`.
  *
- * All three are one ranked search over a different row set, so they share this
+ * All three are one title search over a different row set, so they share this
  * view rather than each growing their own box, sheet and paging. `scope` is
  * what narrows the query; everything else about the three is identical.
  *
@@ -73,10 +73,13 @@ export function ResultsView({ scope, basePath, from, emptyMessage, renderAction 
 
   // Debounce the box into the URL. 250ms is below the threshold where typing
   // feels laggy and well above per-keystroke.
+  //
+  // Compared trimmed because the URL stores `q` trimmed: "min " would otherwise
+  // differ from it forever, and each replace re-runs this effect.
   useEffect(() => {
-    if (text === filters.q) return;
+    if (text.trim() === filters.q.trim()) return;
     const timer = setTimeout(() => {
-      lastAppliedQuery.current = text;
+      lastAppliedQuery.current = text.trim();
       router.replace(searchHref({ ...filters, q: text }, basePath), { scroll: false });
     }, 250);
     return () => clearTimeout(timer);
@@ -170,7 +173,7 @@ export function ResultsView({ scope, basePath, from, emptyMessage, renderAction 
   }, [page]);
 
   const apply = (next: SearchFilters) => {
-    lastAppliedQuery.current = next.q;
+    lastAppliedQuery.current = next.q.trim();
     router.replace(searchHref(next, basePath), { scroll: false });
   };
 

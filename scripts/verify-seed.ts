@@ -4,10 +4,9 @@
  *   npx tsx scripts/verify-seed.ts
  *
  * Checks the things that fail SILENTLY:
- *   - metadata.topic_text agrees with content_item_tags (drift = dead search)
+ *   - metadata.topic_text agrees with content_item_tags (drift = wrong topics)
  *   - required captures (hints, exampleTestcases, codeSnippets) are present
  *   - body_html was sanitized (no <script>)
- *   - search_vector actually populated from topic_text
  *   - sort_key is set, so the feed opens at Two Sum
  */
 
@@ -146,22 +145,6 @@ async function main(): Promise<void> {
   const withScript = rows.filter((r) => /<script|onerror=|javascript:/i.test(r.body_html ?? ''));
   if (withScript.length > 0) fail(`${withScript.length} rows contain script/handler markup`);
   else console.log(`  PASS  no <script>, onerror=, or javascript: in any body_html`);
-
-  console.log('\n--- search_vector populated from topic_text ---');
-  const probe = rows.find((r) => (r.metadata.topic_text as string | undefined)?.includes('hash-table'));
-  if (!probe) {
-    console.log('  SKIP  no row tagged hash-table in this sample');
-  } else {
-    const { data: hits, error: sErr } = await db
-      .from('content_items')
-      .select('slug')
-      .textSearch('search_vector', 'hash & table')
-      .limit(5);
-    if (sErr) throw new Error(sErr.message);
-    const found = (hits ?? []) as Array<{ slug: string }>;
-    if (found.length === 0) fail("textSearch('hash & table') returned nothing — topic_text is not feeding search_vector");
-    else console.log(`  PASS  textSearch matched ${found.length}: ${found.map((h) => h.slug).join(', ')}`);
-  }
 
   console.log('\n--- sync_runs ---');
   const { data: runs, error: rErr } = await db

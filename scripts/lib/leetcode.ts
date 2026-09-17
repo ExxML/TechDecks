@@ -396,10 +396,10 @@ export function computeContentHash(sanitizedHtml: string | null): string | null 
 // ===========================================================================
 // Normalization — the single shared code path for tags and topic_text
 //
-// metadata.topic_text is denormalized: it feeds the generated search_vector
-// column but is derived from the same tags that populate content_item_tags.
-// Seed and delta MUST write both from here. If they drift, topic search
-// silently returns nothing — a failure with no error message.
+// metadata.topic_text is denormalized: it is the tag list carried on the row
+// itself, derived from the same tags that populate content_item_tags.
+// Seed and delta MUST write both from here. If they drift, the row disagrees
+// with its own tags — a failure with no error message.
 // ===========================================================================
 
 export type NormalizedTag = { readonly slug: string; readonly name: string };

@@ -306,8 +306,8 @@ export async function upsertProblem(
   const contentHash = computeContentHash(sanitized);
 
   // Tags and topic_text come from ONE call to normalizeTags. They must never be
-  // derived separately: topic_text feeds the generated search_vector, and if it
-  // drifts from content_item_tags, topic search silently returns nothing.
+  // derived separately: topic_text is the same tag list denormalized onto the
+  // row, and if it drifts from content_item_tags the two silently disagree.
   const tags = normalizeTags(q.topicTags ?? item.topicTags);
   const stats = parseJsonField(q.stats);
 

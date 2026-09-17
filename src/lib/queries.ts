@@ -255,8 +255,9 @@ const SCOPE_ARGS: Record<SearchScope, { bookmarked: boolean; visited: boolean; o
  * to a tab showed a skeleton over results that had not changed. Keeping the
  * last page lets the list paint at once while the refetch confirms it.
  *
- * First pages only: later pages are appended by "Show more" and are dropped
- * with the rest of the view, as re-entering a list starts it from the top.
+ * First pages only: later pages are appended as the list scrolls and are
+ * dropped with the rest of the view, as re-entering a list starts it from the
+ * top.
  */
 const firstPages = new Map<string, SearchPage>();
 

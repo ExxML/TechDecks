@@ -60,7 +60,6 @@ export function ResultsView({ scope, basePath, from, emptyMessage, renderAction 
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showFilters, setShowFilters] = useState(false);
-  const [loadingMore, setLoadingMore] = useState(false);
 
   // The URL is the source of truth for `q`, so a back navigation that changes
   // it must win over whatever is in the box.
@@ -110,9 +109,16 @@ export function ResultsView({ scope, basePath, from, emptyMessage, renderAction 
       ? fetched.page
       : cachedSearchPage(filters, scope);
 
+  const hits = page?.hits ?? [];
+  const showEmpty = page !== null && hits.length === 0;
+  const remaining = page === null ? 0 : page.total - hits.length;
+
+  // The observer fires again while the sentinel is still in view after a page
+  // lands, so the in-flight guard has to be readable synchronously.
+  const loadingMore = useRef(false);
   const loadMore = async () => {
-    if (!page || loadingMore || page.hits.length >= page.total) return;
-    setLoadingMore(true);
+    if (page === null || loadingMore.current || page.hits.length >= page.total) return;
+    loadingMore.current = true;
     try {
       const next = await searchContentItems(
         createClient(),
@@ -132,11 +138,36 @@ export function ResultsView({ scope, basePath, from, emptyMessage, renderAction 
         scope,
       });
     } catch {
-      // Leave the page intact; the button stays available for a retry.
+      // Leave the page intact; scrolling past the sentinel retries.
     } finally {
-      setLoadingMore(false);
+      loadingMore.current = false;
     }
   };
+
+  const scroller = useRef<HTMLDivElement | null>(null);
+  const sentinel = useRef<HTMLDivElement | null>(null);
+
+  // Pages in as the trailing skeleton nears the bottom of the scroller. A
+  // viewport of lead time keeps an ordinary scroll from ever reaching the end
+  // first; a fast flick can still outrun it and wait on the fetch.
+  //
+  // Re-observed after each page lands, so a sentinel still in view keeps
+  // paging, and torn down with the sentinel once the list is exhausted.
+  useEffect(() => {
+    const node = sentinel.current;
+    if (node === null) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) void loadMore();
+      },
+      { root: scroller.current, rootMargin: '400px' },
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+    // `loadMore` is recreated every render; the page it closes over is what
+    // this depends on.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page]);
 
   const apply = (next: SearchFilters) => {
     lastAppliedQuery.current = next.q;
@@ -160,9 +191,6 @@ export function ResultsView({ scope, basePath, from, emptyMessage, renderAction 
     (filters.acMax !== null ? 1 : 0) +
     // Already implied by the scope, so it is not a filter the reader applied.
     (filters.bookmarkedOnly && scope === 'catalog' ? 1 : 0);
-
-  const hits = page?.hits ?? [];
-  const showEmpty = page !== null && hits.length === 0;
 
   // Carried into the feed so it pages through these results in this order. The
   // filters travel rather than the ids: the feed re-runs the same search
@@ -227,7 +255,7 @@ export function ResultsView({ scope, basePath, from, emptyMessage, renderAction 
         </p>
       )}
 
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      <div ref={scroller} className="min-h-0 flex-1 overflow-y-auto">
         {error && <p className="px-4 py-3 text-[13px] text-[var(--color-incorrect)]">{error}</p>}
 
         {page === null && !error ? (
@@ -259,16 +287,9 @@ export function ResultsView({ scope, basePath, from, emptyMessage, renderAction 
               hrefSuffix={hitHref}
               renderAction={renderAction && ((hit) => renderAction(hit, () => drop(hit.id)))}
             />
-            {page !== null && hits.length < page.total && (
-              <div className="flex justify-center py-4">
-                <button
-                  type="button"
-                  onClick={() => void loadMore()}
-                  disabled={loadingMore}
-                  className="text-[13px] text-[var(--color-text-muted)] underline underline-offset-2 disabled:opacity-50"
-                >
-                  {loadingMore ? 'Loading…' : `Show more (${page.total - hits.length} left)`}
-                </button>
+            {remaining > 0 && (
+              <div ref={sentinel}>
+                <CompactListSkeleton rows={Math.min(3, remaining)} />
               </div>
             )}
           </>

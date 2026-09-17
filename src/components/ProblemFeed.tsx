@@ -341,15 +341,6 @@ export function ProblemFeed({
           </div>
         )}
       </div>
-
-      {/* Only while the reader is still on the card the feed opened with: the
-          first swipe is what the hint asks for, and it answers itself. */}
-
-      {!cursor && !loading && active === items.length - 1 && (
-        <p className="pointer-events-none absolute inset-x-0 bottom-2 text-center text-[13px] text-[var(--color-text-muted)]">
-          End of feed
-        </p>
-      )}
     </div>
   );
 }

@@ -42,6 +42,12 @@
   --color-correct-wash: rgba(0, 184, 163, 0.08);
   --color-incorrect-wash: rgba(255, 55, 95, 0.08);
 
+  /* Scrollbar thumb. Tracks stay transparent, so only the thumb needs a token;
+     it sits a step above --color-border so it reads on both surface and
+     surface-alt without becoming a second border line. */
+  --color-scrollbar: #4a4a4a;
+  --color-scrollbar-hover: #5e5e5e;
+
   /* The light palette is NOT defined here as `--color-*-light` aliases. Those
      would be a second set of names every component would have to choose
      between; instead the theme blocks below redefine these same tokens, so
@@ -112,6 +118,8 @@
     --color-danger: #b8422f;
     --color-correct-wash: rgba(0, 128, 111, 0.1);
     --color-incorrect-wash: rgba(214, 31, 66, 0.1);
+    --color-scrollbar: #c7c7c7;
+    --color-scrollbar-hover: #a8a8a8;
   }
 }
 
@@ -132,6 +140,8 @@
   --color-danger: #b8422f;
   --color-correct-wash: rgba(0, 128, 111, 0.1);
   --color-incorrect-wash: rgba(214, 31, 66, 0.1);
+  --color-scrollbar: #c7c7c7;
+  --color-scrollbar-hover: #a8a8a8;
 }
 
 /* The accent is deliberately absent from both light blocks: LeetCode orange is
@@ -167,11 +177,45 @@ body {
 * {
   /* Transitions are colour/opacity only and <=150ms. No page transitions. */
   border-color: var(--color-border);
+  /* Firefox's half of the scrollbar styling below. */
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-scrollbar) transparent;
 }
 
 :focus-visible {
   outline: 2px solid var(--color-accent);
   outline-offset: 2px;
+}
+
+/* Scrollbars. The platform default is a wide, boxed track that reads as browser
+   chrome sitting inside the app; this is the same control in the app's own
+   palette — thin, rounded, on a transparent track so it floats over the surface
+   it scrolls. Chrome and Safari need these pseudo-elements; Firefox takes the
+   two properties above instead. Applied to `*` rather than a utility class so
+   every scroll container is covered, including <pre> and problem-body markup.
+   `.no-scrollbar` still overrides both halves on class specificity. */
+
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: var(--color-scrollbar);
+  border-radius: 4px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--color-scrollbar-hover);
+}
+
+/* The corner where two bars meet defaults to an opaque grey square. */
+*::-webkit-scrollbar-corner {
+  background: transparent;
 }
 
 /* Hide scrollbars on the snap containers without disabling scrolling. The

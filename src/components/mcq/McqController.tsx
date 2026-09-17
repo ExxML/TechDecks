@@ -6,7 +6,6 @@ import { GenerateOptionsSheet } from './GenerateOptionsSheet';
 import { HistoryPicker } from './HistoryPicker';
 import { ApiKeyDialog } from '../ApiKeyDialog';
 import { Button } from '../ui/Button';
-import { Skeleton } from '../ui/Skeleton';
 import { useSettings } from '@/lib/settings';
 import { useGeneration } from '@/lib/mcq/generation';
 import { getMcqStore } from '@/lib/mcq/provider';
@@ -173,16 +172,9 @@ export function McqController({ item, active, onEnterQuestions, inQuestions, onN
   return (
     <div className="border-t border-[var(--color-border)] px-4 py-3">
       {generating ? (
-        <>
-          <Button variant="primary" className="w-full" disabled>
-            Generating questions… ~20s
-          </Button>
-          <div className="mt-2 flex gap-2">
-            <Skeleton className="h-2 flex-1" />
-            <Skeleton className="h-2 flex-1" />
-            <Skeleton className="h-2 flex-1" />
-          </div>
-        </>
+        <Button variant="primary" className="w-full" disabled>
+          Generating questions… ~20s
+        </Button>
       ) : (
         <>
           <Button

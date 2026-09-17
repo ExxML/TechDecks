@@ -48,10 +48,10 @@ export function Dialog({ open, onClose, title, children }: Props) {
       className={
         'w-full max-w-[420px] rounded-[8px] border border-[var(--color-border)] ' +
         'bg-[var(--color-surface)] p-0 text-[var(--color-text)] backdrop:bg-black/60 ' +
-        'm-0 mt-auto sm:m-auto'
+        'm-0 mt-auto max-h-[85dvh] flex-col open:flex sm:m-auto'
       }
     >
-      <div className="flex items-center justify-between border-b border-[var(--color-border)] px-4 py-3">
+      <div className="flex shrink-0 items-center justify-between border-b border-[var(--color-border)] px-4 py-3">
         <h2 className="text-[16px] font-medium">{title}</h2>
         <button
           type="button"
@@ -62,7 +62,7 @@ export function Dialog({ open, onClose, title, children }: Props) {
           <X size={16} />
         </button>
       </div>
-      <div className="px-4 py-4">{children}</div>
+      <div className="min-h-0 overflow-y-auto px-4 py-4">{children}</div>
     </dialog>
   );
 }

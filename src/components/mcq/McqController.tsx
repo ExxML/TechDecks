@@ -16,8 +16,6 @@ import { kindsForItem } from '@/lib/gemini/schema';
 import type { McqSet } from '@/lib/mcq/store';
 import type { ContentItem } from '@/lib/types';
 
-const titleCase = (k: string) => k.charAt(0).toUpperCase() + k.slice(1);
-
 /** The author's free-text language, when they set one. Synced problems have
  *  none here — theirs come from codeSnippets via the options sheet. */
 function authoredLanguage(item: ContentItem): string | null {
@@ -99,7 +97,7 @@ export function McqController({ item, active, onEnterQuestions, inQuestions, onN
   const activeSet = sets.find((s) => s.id === activeSetId) ?? null;
 
   const runGeneration = useCallback(
-    async (model: string, language: string | null) => {
+    async (model: string, language: string | null, kinds: readonly string[]) => {
       const saved = await generate({
         contentItemId: item.id,
         // Null when the key lives in Vault: the route resolves it server-side.
@@ -116,7 +114,7 @@ export function McqController({ item, active, onEnterQuestions, inQuestions, onN
         onEnterQuestions();
       }
     },
-    [apiKey, generate, item, kinds, onEnterQuestions, store],
+    [apiKey, generate, item, onEnterQuestions, store],
   );
 
   // Tapping Generate with no key opens the dialog inline, then proceeds with
@@ -195,11 +193,9 @@ export function McqController({ item, active, onEnterQuestions, inQuestions, onN
             {sets.length > 0 ? 'Start' : 'Generate Questions'}
           </Button>
 
-          {sets.length === 0 && (
+          {sets.length === 0 && hydrated && keyless && (
             <p className="mt-1.5 text-center text-[13px] leading-none text-[var(--color-text-muted)]">
-              {hydrated && keyless
-                ? 'Needs a Gemini API key.'
-                : `${kinds.length} question${kinds.length === 1 ? '' : 's'} · ${kinds.map(titleCase).join(', ')}`}
+              Needs a Gemini API key.
             </p>
           )}
 
@@ -231,7 +227,8 @@ export function McqController({ item, active, onEnterQuestions, inQuestions, onN
         open={showOptions}
         onClose={() => setShowOptions(false)}
         snippets={item.metadata.codeSnippets ?? []}
-        onConfirm={(model, language) => void runGeneration(model, language)}
+        kinds={kinds}
+        onConfirm={(model, language, requested) => void runGeneration(model, language, requested)}
       />
       <HistoryPicker
         open={showHistory}

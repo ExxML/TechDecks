@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Dialog } from '../ui/Dialog';
 import { Select } from '../ui/Select';
 import { Button } from '../ui/Button';
+import { KindEditor } from '../KindEditor';
 import { useSettings } from '@/lib/settings';
 import { useModels } from '@/lib/gemini/useModels';
 import { useStoredKey } from '@/lib/gemini/useStoredKey';
@@ -16,7 +17,9 @@ type Props = {
   /** From THIS problem's codeSnippets — a global list cannot be the only source,
    *  because only these languages have a real signature to pin against. */
   readonly snippets: readonly CodeSnippet[];
-  readonly onConfirm: (model: string, language: string | null) => void;
+  /** This problem's kinds, the starting point for the editor below. */
+  readonly kinds: readonly string[];
+  readonly onConfirm: (model: string, language: string | null, kinds: readonly string[]) => void;
 };
 
 /**
@@ -37,7 +40,7 @@ function defaultLanguageFor(
   return snippets[0].langSlug;
 }
 
-export function GenerateOptionsSheet({ open, onClose, snippets, onConfirm }: Props) {
+export function GenerateOptionsSheet({ open, onClose, snippets, kinds, onConfirm }: Props) {
   const { model: defaultModel, language: defaultLanguage, setModel, setLanguage } = useSettings();
   const apiKey = useSettings((s) => s.apiKey);
   // Either source counts: a pasted key for this tab, or one stored in Vault
@@ -51,20 +54,29 @@ export function GenerateOptionsSheet({ open, onClose, snippets, onConfirm }: Pro
   // snippet list or a late-arriving model list is picked up without an effect.
   const [modelOverride, setModelOverride] = useState<string | null>(null);
   const [langOverride, setLangOverride] = useState<string | null>(null);
+  const [kindsOverride, setKindsOverride] = useState<readonly string[] | null>(null);
 
   const effectiveModel = modelOverride ?? defaultModel ?? defaultModelName;
   const effectiveLang = langOverride ?? defaultLanguageFor(snippets, defaultLanguage);
+  const effectiveKinds = kindsOverride ?? kinds;
+
+  // Kind edits apply to one generation only, so the sheet reopens on the
+  // problem's own kinds however it was dismissed.
+  const close = () => {
+    setKindsOverride(null);
+    onClose();
+  };
 
   const confirm = () => {
-    if (!effectiveModel) return;
+    if (!effectiveModel || effectiveKinds.length === 0) return;
     setModel(effectiveModel);
     if (effectiveLang) setLanguage(effectiveLang);
-    onClose();
-    onConfirm(effectiveModel, effectiveLang);
+    close();
+    onConfirm(effectiveModel, effectiveLang, effectiveKinds);
   };
 
   return (
-    <Dialog open={open} onClose={onClose} title="Generate questions">
+    <Dialog open={open} onClose={close} title="Generate questions">
       <label className="mb-1.5 block text-[12px] text-[var(--color-text-muted)]">Model</label>
       {loading && <p className="text-[13px] text-[var(--color-text-muted)]">Loading models…</p>}
       {error && <p className="text-[13px] text-[var(--color-incorrect)]">{error}</p>}
@@ -106,11 +118,16 @@ export function GenerateOptionsSheet({ open, onClose, snippets, onConfirm }: Pro
         </>
       )}
 
+      <label className="mt-3 mb-1.5 block text-[12px] text-[var(--color-text-muted)]">
+        Questions
+      </label>
+      <KindEditor kinds={effectiveKinds} onChange={setKindsOverride} />
+
       <Button
         variant="primary"
         className="mt-4 w-full"
         onClick={confirm}
-        disabled={!effectiveModel || loading}
+        disabled={!effectiveModel || loading || effectiveKinds.length === 0}
       >
         Generate
       </Button>

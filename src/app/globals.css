@@ -185,6 +185,31 @@ body {
   display: none;
 }
 
+/* Indeterminate progress sweep. A solid segment that travels, deliberately not
+   a gradient shimmer: the point is to prove the request is still alive, and
+   Gemini returns the whole set at once so there is no real percentage to show.
+   Reduced motion parks it full-width, which still reads as "busy". */
+@keyframes progress-sweep {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(400%);
+  }
+}
+
+.progress-sweep {
+  width: 25%;
+  animation: progress-sweep 1.1s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .progress-sweep {
+    width: 100%;
+    animation: none;
+  }
+}
+
 /* ==========================================================================
    Problem body — untrusted HTML from LeetCode, already sanitized twice.
 

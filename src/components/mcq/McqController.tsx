@@ -54,12 +54,16 @@ export function McqController({ item, active, onEnterQuestions, inQuestions, onN
 
   const status = useGeneration((s) => s.statusByItem[item.id] ?? 'idle');
   const error = useGeneration((s) => s.errorByItem[item.id] ?? null);
+  const startedAt = useGeneration((s) => s.startedAtByItem[item.id] ?? null);
   const version = useGeneration((s) => s.versionByItem[item.id] ?? 0);
   const globalVersion = useGeneration((s) => s.globalVersion);
   const generate = useGeneration((s) => s.generate);
   const bump = useGeneration((s) => s.bump);
 
   const [sets, setSets] = useState<readonly McqSet[]>([]);
+  // False until the first read resolves, so State B can tell "still loading"
+  // apart from "genuinely none" and not flash the fallback at an entry.
+  const [loaded, setLoaded] = useState(false);
   const [activeSetId, setActiveSetId] = useState<string | null>(null);
   const [showOptions, setShowOptions] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
@@ -81,6 +85,9 @@ export function McqController({ item, active, onEnterQuestions, inQuestions, onN
       })
       .catch(() => {
         if (!cancelled) setSets([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoaded(true);
       });
     return () => {
       cancelled = true;
@@ -149,6 +156,9 @@ export function McqController({ item, active, onEnterQuestions, inQuestions, onN
   // State B. An ungenerated card must never render a zero-length strip with
   // zero dots — that reads as broken — so fall back to State A instead.
   if (inQuestions) {
+    // The strip mounts fresh on entry, so hold the frame until the sets are in
+    // rather than showing the fallback over a set that is about to arrive.
+    if (!loaded) return null;
     if (!activeSet) {
       return <StateBFallback onBack={onNoSet} />;
     }
@@ -172,9 +182,7 @@ export function McqController({ item, active, onEnterQuestions, inQuestions, onN
   return (
     <div className="border-t border-[var(--color-border)] px-4 py-3">
       {generating ? (
-        <Button variant="primary" className="w-full" disabled>
-          Generating questions… ~20s
-        </Button>
+        <GeneratingButton startedAt={startedAt} />
       ) : (
         <>
           <Button
@@ -241,6 +249,37 @@ export function McqController({ item, active, onEnterQuestions, inQuestions, onN
       />
     </div>
   );
+}
+
+/**
+ * Disabled CTA for an in-flight generation: a travelling bar for liveness and
+ * a count of seconds elapsed. No percentage — the model returns the whole set
+ * in one response, so there is no progress to report, only proof of life.
+ */
+function GeneratingButton({ startedAt }: { readonly startedAt: number | null }) {
+  // Ticks the clock; the displayed value is derived from startedAt, so a
+  // remount mid-generation picks up the real elapsed time rather than zero.
+  const [, tick] = useState(0);
+
+  useEffect(() => {
+    const id = setInterval(() => tick((n) => n + 1), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  const elapsed = elapsedSeconds(startedAt);
+
+  return (
+    <Button variant="primary" className="relative w-full overflow-hidden" disabled>
+      Generating questions… {elapsed}s
+      <span className="absolute inset-x-0 bottom-0 h-[2px]" aria-hidden="true">
+        <span className="progress-sweep block h-full bg-[var(--color-on-accent)]" />
+      </span>
+    </Button>
+  );
+}
+
+function elapsedSeconds(startedAt: number | null): number {
+  return startedAt === null ? 0 : Math.floor((Date.now() - startedAt) / 1000);
 }
 
 /** Only reachable if a set is deleted while State B is open. */

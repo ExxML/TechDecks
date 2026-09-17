@@ -18,6 +18,10 @@ type Status = 'idle' | 'generating' | 'error';
 type GenerationState = {
   statusByItem: Readonly<Record<string, Status>>;
   errorByItem: Readonly<Record<string, string | null>>;
+  /** Epoch ms the in-flight request started, for the elapsed counter. Lives
+   *  here rather than in the card so unmounting mid-generation does not
+   *  restart the clock. */
+  startedAtByItem: Readonly<Record<string, number>>;
   /** Bumped whenever a problem's sets change, so views can re-read the store. */
   versionByItem: Readonly<Record<string, number>>;
   /** Bumped when EVERY problem's sets may have changed at once — the sign-in
@@ -44,6 +48,7 @@ export type GenerateArgs = {
 export const useGeneration = create<GenerationState>((set, get) => ({
   statusByItem: {},
   errorByItem: {},
+  startedAtByItem: {},
   versionByItem: {},
   globalVersion: 0,
 
@@ -66,6 +71,7 @@ export const useGeneration = create<GenerationState>((set, get) => ({
     set((s) => ({
       statusByItem: { ...s.statusByItem, [contentItemId]: 'generating' },
       errorByItem: { ...s.errorByItem, [contentItemId]: null },
+      startedAtByItem: { ...s.startedAtByItem, [contentItemId]: Date.now() },
     }));
 
     try {

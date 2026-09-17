@@ -219,7 +219,7 @@ export function ResultsView({ scope, basePath, from, emptyMessage, renderAction 
             onChange={(e) => setText(e.target.value)}
             placeholder="Search problems"
             aria-label="Search problems"
-            className="w-full rounded-[4px] border border-[var(--color-border)] bg-[var(--color-surface-alt)] py-2 pr-8 pl-8 text-[14px] text-[var(--color-text)] placeholder:text-[var(--color-text-muted)] focus:border-[var(--color-accent)] focus:outline-none"
+            className="w-full rounded-[4px] border border-[var(--color-border)] bg-[var(--color-surface-alt)] py-2 pr-8 pl-8 [&::-webkit-search-cancel-button]:hidden text-[14px] text-[var(--color-text)] placeholder:text-[var(--color-text-muted)] focus:border-[var(--color-accent)] focus:outline-none"
           />
           {text && (
             <button

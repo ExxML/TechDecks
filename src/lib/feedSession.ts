@@ -13,8 +13,8 @@ import type { ContentItem, FeedCursor } from './types';
  * the items too: re-deriving them would deal a fresh shuffle and the reader's
  * place in it would mean nothing.
  *
- * Deliberately module state rather than sessionStorage. It should survive a tab
- * switch, not a refresh — a refresh is the gesture that asks for a new deal.
+ * Deliberately module state rather than sessionStorage. It is scoped to the
+ * loaded app: a refresh starts over from the route's own server-fetched page.
  */
 
 export type FeedSession = {

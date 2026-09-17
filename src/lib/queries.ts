@@ -2,8 +2,9 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type {
   ContentItem,
   Difficulty,
-  FeedCursor,
   FeedPage,
+  SearchCursor,
+  ShuffleCursor,
   LeetCodeMetadata,
   SearchFilters,
   SearchPage,
@@ -101,7 +102,7 @@ function mapFeedRow(row: FeedRow): ContentItem {
  */
 export async function fetchFeedPage(
   db: SupabaseClient,
-  cursor: FeedCursor | null,
+  cursor: ShuffleCursor | null,
   seed: string = cursor?.seed ?? newFeedSeed(),
   limit = FEED_PAGE_SIZE,
 ): Promise<FeedPage> {
@@ -121,7 +122,9 @@ export async function fetchFeedPage(
   return {
     items: page.map(mapFeedRow),
     nextCursor:
-      hasMore && last ? { seed, key: Number(last.shuffle_key), id: last.id } : null,
+      hasMore && last
+        ? { kind: 'shuffle', seed, key: Number(last.shuffle_key), id: last.id }
+        : null,
   };
 }
 
@@ -181,6 +184,38 @@ export async function fetchFeedAnchoredAt(
   return {
     items: [anchor, ...rest.items.filter((i) => i.id !== anchor.id)],
     nextCursor: rest.nextCursor,
+  };
+}
+
+/**
+ * One page of a result list as feed cards, continuing from `cursor`.
+ *
+ * A result list is a closed set — it ends where the search ends rather than
+ * running on into the catalog — but it ends at its true end, not at the first
+ * page the list happened to have rendered. The search is re-run from the
+ * cursor's own filters so the order matches the list the reader was scrolling.
+ *
+ * The hits carry no body, so the rows are re-read in full, in hit order.
+ */
+export async function fetchSearchFeedPage(
+  db: SupabaseClient,
+  filters: SearchFilters,
+  cursor: SearchCursor,
+  limit = FEED_PAGE_SIZE,
+): Promise<FeedPage> {
+  const { hits, total } = await searchContentItems(
+    db,
+    filters,
+    limit,
+    cursor.offset,
+    cursor.scope,
+  );
+  const items = await fetchItemsBySlugs(db, hits.map((h) => h.slug));
+  const offset = cursor.offset + hits.length;
+
+  return {
+    items,
+    nextCursor: hits.length > 0 && offset < total ? { ...cursor, offset } : null,
   };
 }
 

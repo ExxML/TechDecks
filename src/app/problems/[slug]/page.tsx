@@ -8,7 +8,7 @@ import {
   SEARCH_PAGE_SIZE,
   searchContentItems,
 } from '@/lib/queries';
-import { filtersFromParams } from '@/lib/searchParams';
+import { filtersFromParams, paramsFromFilters } from '@/lib/searchParams';
 import { pageTitle } from '@/lib/title';
 import { ProblemFeed } from '@/components/ProblemFeed';
 import type { FeedPage, SearchScope } from '@/lib/types';
@@ -90,9 +90,12 @@ export default async function ProblemPage({ params, searchParams }: Props) {
  * The search results as a feed, positioned at the hit that was tapped.
  *
  * Re-run server-side from the same URL params the result list was built from,
- * so the order is the one the reader saw. Null when the slug is not in them —
- * a stale link, which falls back to the ordinary anchored feed rather than
- * dropping the reader somewhere unrelated.
+ * so the order is the one the reader saw. Null when the slug is not in the
+ * results at all — a stale link, which falls back to the ordinary anchored feed
+ * rather than dropping the reader somewhere unrelated.
+ *
+ * Only the page the hit falls in is dealt: the reader may have scrolled deep
+ * into a long list, and the feed pages on from there through the rest of it.
  */
 async function searchOrder(
   db: Awaited<ReturnType<typeof createClient>>,
@@ -100,18 +103,39 @@ async function searchOrder(
   slug: string,
   scope: SearchScope,
 ): Promise<{ page: FeedPage; index: number } | null> {
-  const filters = filtersFromParams(new URLSearchParams(flatten(query)));
-  const { hits } = await searchContentItems(db, filters, SEARCH_PAGE_SIZE, 0, scope);
-  if (!hits.some((h) => h.slug === slug)) return null;
+  const params = paramsFromFilters(filtersFromParams(new URLSearchParams(flatten(query))));
+  const filters = filtersFromParams(params);
+
+  const { hits, total } = await searchContentItems(db, filters, SEARCH_PAGE_SIZE, 0, scope);
+  let offset = 0;
+  let hit = hits.findIndex((h) => h.slug === slug);
+  let window = hits;
+
+  // The list pages as it scrolls, so the hit is not necessarily in its first
+  // page. Walk forward to the page holding it.
+  while (hit === -1 && offset + window.length < total && window.length > 0) {
+    offset += window.length;
+    ({ hits: window } = await searchContentItems(db, filters, SEARCH_PAGE_SIZE, offset, scope));
+    hit = window.findIndex((h) => h.slug === slug);
+  }
+  if (hit === -1) return null;
 
   // The hits carry no body, so the rows are re-read in full — in the hit order.
-  const items = await fetchItemsBySlugs(db, hits.map((h) => h.slug));
+  const items = await fetchItemsBySlugs(db, window.map((h) => h.slug));
   const index = items.findIndex((i) => i.slug === slug);
   if (index === -1) return null;
 
-  // A result list is a closed set: it ends where it ends rather than running on
-  // into the catalog, which is the whole point of paging through it.
-  return { page: { items, nextCursor: null }, index };
+  const next = offset + window.length;
+  // A result list is a closed set: it ends where the search ends rather than
+  // running on into the catalog, which is the whole point of paging through it.
+  return {
+    page: {
+      items,
+      nextCursor:
+        next < total ? { kind: 'search', scope, params: params.toString(), offset: next } : null,
+    },
+    index,
+  };
 }
 
 /** Array-valued params cannot occur here; the first value is the only one. */

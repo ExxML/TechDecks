@@ -64,11 +64,29 @@ export type ContentItem = {
  * hashtext(id || seed), so a later page must be dealt from the same shuffle or
  * it would overlap and skip. See 0007_feed_shuffle.sql.
  */
-export type FeedCursor = {
+export type ShuffleCursor = {
+  readonly kind: 'shuffle';
   readonly seed: string;
   readonly key: number;
   readonly id: string;
 };
+
+/**
+ * Where a result-list feed has reached in its search.
+ *
+ * Offset paging, unlike the shuffled feed: a ranked search has no stable key to
+ * seek on, and it is the same paging the result list itself uses, so the feed
+ * continues the list rather than re-deriving it. `params` is the list's own
+ * filter query string, which is what makes the order reproducible server-side.
+ */
+export type SearchCursor = {
+  readonly kind: 'search';
+  readonly scope: SearchScope;
+  readonly params: string;
+  readonly offset: number;
+};
+
+export type FeedCursor = ShuffleCursor | SearchCursor;
 
 export type FeedPage = {
   readonly items: readonly ContentItem[];

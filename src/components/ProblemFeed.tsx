@@ -47,6 +47,15 @@ const VISIT_DWELL_MS = 2000;
  * `dvh` not `vh` — mobile browser chrome resizes vh, which produces a visible
  * jump as the URL bar hides.
  */
+/** A cursor as the query string /api/feed reads it back from. */
+function feedQuery(cursor: FeedCursor): string {
+  return new URLSearchParams(
+    cursor.kind === 'search'
+      ? { scope: cursor.scope, params: cursor.params, offset: String(cursor.offset) }
+      : { seed: cursor.seed, key: String(cursor.key), id: cursor.id },
+  ).toString();
+}
+
 export function ProblemFeed({
   initialItems = [],
   initialCursor = null,
@@ -109,9 +118,7 @@ export function ProblemFeed({
     if (!c || loadingRef.current) return;
     setLoading(true);
     try {
-      const res = await fetch(
-        `/api/feed?seed=${encodeURIComponent(c.seed)}&key=${c.key}&id=${encodeURIComponent(c.id)}`,
-      );
+      const res = await fetch(`/api/feed?${feedQuery(c)}`);
       if (!res.ok) throw new Error(`feed request failed: ${res.status}`);
       const page = (await res.json()) as { items: ContentItem[]; nextCursor: FeedCursor | null };
       setItems((prev) => {

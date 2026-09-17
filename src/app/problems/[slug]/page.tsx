@@ -73,6 +73,17 @@ export default async function ProblemPage({ params, searchParams }: Props) {
     page = await fetchFeedAnchoredAt(db, item);
   }
 
+  // The result list this run belongs to, normalised so a reload, a shared link
+  // and a differently ordered query all resolve to the same list.
+  const key = fromList ? originKey(query) : null;
+  const listQuery =
+    key === null
+      ? undefined
+      : new URLSearchParams([
+          ['from', query.from as string],
+          ...new URLSearchParams(key),
+        ]).toString();
+
   return (
     <ProblemFeed
       initialItems={page.items}
@@ -80,8 +91,9 @@ export default async function ProblemPage({ params, searchParams }: Props) {
       // Distinct per result list, so returning to the Problems tab restores the
       // run the reader was in rather than the shuffled feed, and a different
       // search does not resume the previous one.
-      origin={fromList ? `${query.from as string}:${originKey(query)}` : 'feed'}
+      origin={key === null ? 'feed' : `${query.from as string}:${key}`}
       initialIndex={index}
+      listQuery={listQuery}
     />
   );
 }

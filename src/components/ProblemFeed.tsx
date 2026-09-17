@@ -24,6 +24,9 @@ type Props = {
   /** Index to open on, set whenever the route names a card. Omitted by
    *  /problems, which has no slug and opens wherever the reader left off. */
   readonly initialIndex?: number;
+  /** Query string identifying the result list being paged through, kept on the
+   *  URL as the feed rewrites it so a reload resumes the same list. */
+  readonly listQuery?: string;
 };
 
 /** Cards kept mounted either side of the active one. One is enough to render
@@ -61,6 +64,7 @@ export function ProblemFeed({
   initialCursor = null,
   origin,
   initialIndex,
+  listQuery,
 }: Props) {
   // A session saved under this origin wins over the server's page: it is the
   // same list, further along. Read once, at mount — and only when the route
@@ -192,11 +196,14 @@ export function ProblemFeed({
   useEffect(() => {
     const item = items[active];
     if (!item) return;
-    if (window.location.pathname !== `/problems/${item.slug}`) {
-      window.history.replaceState(null, '', `/problems/${item.slug}`);
+    // The list's params ride along, so a reload lands back in this same list at
+    // this same card rather than in the shuffled feed.
+    const href = `/problems/${item.slug}${listQuery ? `?${listQuery}` : ''}`;
+    if (window.location.pathname + window.location.search !== href) {
+      window.history.replaceState(null, '', href);
     }
     document.title = pageTitle(item.title);
-  }, [active, items]);
+  }, [active, items, listQuery]);
 
   // Record the visit once the card has been dwelt on. The timer is what keeps
   // history a record of what was read rather than of what was swiped past; it

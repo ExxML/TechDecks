@@ -26,8 +26,20 @@ const DIFFICULTY_LABEL: Record<Difficulty, string> = {
   hard: 'Hard',
 };
 
-/** Tags are 175 rows; showing all of them buries the rest of the sheet. */
-const TAG_LIMIT = 24;
+/** Cycled in order by the header toggle, so adding a mode extends the cycle. */
+const TAG_SORTS = [
+  {
+    key: 'count',
+    label: 'Count',
+    /** The order the RPC already returns, so it needs no re-sort. */
+    compare: null,
+  },
+  {
+    key: 'name',
+    label: 'A–Z',
+    compare: (a: TagCount, b: TagCount) => a.name.localeCompare(b.name),
+  },
+] as const;
 
 export function FilterSheet({ open, onClose, filters, onApply, scope = 'catalog' }: Props) {
   const { user } = useUser();
@@ -36,7 +48,8 @@ export function FilterSheet({ open, onClose, filters, onApply, scope = 'catalog'
   // through useState rather than through an effect.
   const [draft, setDraft] = useState<SearchFilters>(filters);
   const [tags, setTags] = useState<readonly TagCount[]>([]);
-  const [showAllTags, setShowAllTags] = useState(false);
+  // Not persisted: reopening the sheet starts from the default sort.
+  const [tagSortIndex, setTagSortIndex] = useState(0);
 
   useEffect(() => {
     if (!open || tags.length > 0) return;
@@ -75,11 +88,8 @@ export function FilterSheet({ open, onClose, filters, onApply, scope = 'catalog'
     }));
   };
 
-  // Selected tags always render, even past the limit — otherwise a tag chosen
-  // from a previous search would vanish from the sheet that set it.
-  const visibleTags = showAllTags
-    ? tags
-    : tags.filter((t, i) => i < TAG_LIMIT || draft.tags.includes(t.slug));
+  const tagSort = TAG_SORTS[tagSortIndex];
+  const sortedTags = tagSort.compare ? [...tags].sort(tagSort.compare) : tags;
 
   return (
     <Dialog open={open} onClose={onClose} title="Filters">
@@ -172,44 +182,46 @@ export function FilterSheet({ open, onClose, filters, onApply, scope = 'catalog'
       )}
 
       <section className="mt-4">
-        <h3 className="mb-2 text-[12px] text-[var(--color-text-muted)]">
-          Topics {draft.tags.length > 0 && `· ${draft.tags.length} selected`}
-        </h3>
+        <div className="mb-2 flex items-baseline justify-between gap-2">
+          <h3 className="text-[12px] text-[var(--color-text-muted)]">
+            Topics {draft.tags.length > 0 && `· ${draft.tags.length} selected`}
+          </h3>
+          {tags.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setTagSortIndex((i) => (i + 1) % TAG_SORTS.length)}
+              className="text-[12px] text-[var(--color-text-muted)] underline underline-offset-2"
+            >
+              Sort by: {tagSort.label}
+            </button>
+          )}
+        </div>
         {tags.length === 0 ? (
           <p className="text-[13px] text-[var(--color-text-muted)]">Loading topics…</p>
         ) : (
-          <>
-            <div className="flex flex-wrap gap-1.5">
-              {visibleTags.map((t) => {
-                const on = draft.tags.includes(t.slug);
-                return (
-                  <button
-                    key={t.slug}
-                    type="button"
-                    aria-pressed={on}
-                    onClick={() => toggleTag(t.slug)}
-                    className="rounded-[4px] border px-1.5 py-0.5 text-[12px] leading-none transition-colors duration-100"
-                    style={{
-                      borderColor: on ? 'var(--color-accent)' : 'var(--color-border)',
-                      color: on ? 'var(--color-accent)' : 'var(--color-text-muted)',
-                    }}
-                  >
-                    {t.name}
-                    <span className="ml-1 opacity-60">{t.count}</span>
-                  </button>
-                );
-              })}
-            </div>
-            {!showAllTags && tags.length > visibleTags.length && (
-              <button
-                type="button"
-                onClick={() => setShowAllTags(true)}
-                className="mt-2 text-[12px] text-[var(--color-text-muted)] underline underline-offset-2"
-              >
-                Show all {tags.length} topics
-              </button>
-            )}
-          </>
+          // Tags are 175 rows. Capping them here keeps the section from
+          // burying the rest of the sheet without hiding any of them.
+          <div className="flex max-h-[30dvh] flex-wrap content-start gap-1.5 overflow-y-auto">
+            {sortedTags.map((t) => {
+              const on = draft.tags.includes(t.slug);
+              return (
+                <button
+                  key={t.slug}
+                  type="button"
+                  aria-pressed={on}
+                  onClick={() => toggleTag(t.slug)}
+                  className="rounded-[4px] border px-1.5 py-0.5 text-[12px] leading-none transition-colors duration-100"
+                  style={{
+                    borderColor: on ? 'var(--color-accent)' : 'var(--color-border)',
+                    color: on ? 'var(--color-accent)' : 'var(--color-text-muted)',
+                  }}
+                >
+                  {t.name}
+                  <span className="ml-1 opacity-60">{t.count}</span>
+                </button>
+              );
+            })}
+          </div>
         )}
       </section>
 

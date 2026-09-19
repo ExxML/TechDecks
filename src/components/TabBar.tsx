@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Layers, Search, History, Bookmark, Settings } from 'lucide-react';
+import { listHref } from '@/lib/listSession';
 
 /**
  * Fixed bottom tab bar. Its 48px height is load-bearing: cards are
@@ -32,7 +33,9 @@ export function TabBar() {
         return (
           <Link
             key={href}
-            href={href}
+            // Result lists carry their filters in the URL, so returning to one
+            // means returning to the query it was left showing.
+            href={listHref(href)}
             aria-current={active ? 'page' : undefined}
             className="flex flex-1 flex-col items-center justify-center gap-1 transition-colors duration-100"
             style={{ color: active ? 'var(--color-accent)' : 'var(--color-text-muted)' }}

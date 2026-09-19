@@ -9,6 +9,7 @@ import { FilterSheet } from './FilterSheet';
 import { createClient } from '@/lib/supabase/client';
 import { cachedSearchPage, searchContentItems, SEARCH_PAGE_SIZE } from '@/lib/queries';
 import { filtersFromParams, paramsFromFilters, searchHref } from '@/lib/searchParams';
+import { saveListQuery } from '@/lib/listSession';
 import {
   filtersAreEmpty,
   type SearchFilters,
@@ -49,6 +50,13 @@ export function ResultsView({ scope, basePath, from, emptyMessage, renderAction 
 
   // Derived from the URL during render — never synced into state by an effect.
   const filters = useMemo(() => filtersFromParams(new URLSearchParams(params.toString())), [params]);
+
+  // So the tab bar can return to this list as the reader left it. Written from
+  // the normalized filters, not the raw params, so a hand-edited URL comes back
+  // in the form the sheet would have produced.
+  useEffect(() => {
+    saveListQuery(basePath, paramsFromFilters(filters).toString());
+  }, [basePath, filters]);
 
   const [text, setText] = useState(filters.q);
   // Held with the query it came from, so a result is never shown under filters

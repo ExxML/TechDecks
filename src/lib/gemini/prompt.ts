@@ -5,7 +5,7 @@
  * attributable to the prompt that produced them.
  */
 
-export const PROMPT_VERSION = 1;
+export const PROMPT_VERSION = 2;
 
 export type PromptInput = {
   readonly title: string;
@@ -42,11 +42,21 @@ Rules:
 - Distractors must be plausible, not filler: a common wrong approach, an
   off-by-one complexity (O(n log n) where the answer is O(n)), a subtly broken
   edge case. A distractor nobody would pick teaches nothing.
-- Write "explanation" before deciding "correct_index": explain why the correct
-  option is correct AND why the plausible distractors fail.
+- Write "hint" before "explanation", and "explanation" before deciding
+  "correct_index": explain why the correct option is correct AND why the
+  plausible distractors fail.
 - Never mention "the provided context", "the solution above", "the description",
   or the fact that you were given anything. The reader sees only the question.
-- Do not restate the full problem in the question text.`;
+- Do not restate the full problem in the question text.
+
+The reader works through the questions in order and reads a hint only after
+being stuck on that question, so each "hint":
+- Is one or two sentences that narrow the field — name the property of the
+  problem that decides the answer, or the question worth asking of each option.
+- Never names, quotes, or points at an option, and never gives the answer away.
+  A hint that leaves nothing to decide is a spoiler, not a hint.
+- May build on the earlier questions in this set, whose answers the reader has
+  already seen, but never depends on a later one.`;
 
 const KIND_RULES: Readonly<Record<string, string>> = {
   approach:

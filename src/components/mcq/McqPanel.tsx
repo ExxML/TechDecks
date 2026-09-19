@@ -1,4 +1,5 @@
-import { RotateCcw } from 'lucide-react';
+import { useState } from 'react';
+import { ChevronDown, Lightbulb, RotateCcw } from 'lucide-react';
 import { McqOption } from './McqOption';
 import { KIND_LABELS, type Mcq } from '@/lib/gemini/schema';
 import type { McqAnswer } from '@/lib/mcq/store';
@@ -20,6 +21,9 @@ type Props = {
  */
 export function McqPanel({ question, answer, width, onAnswer, onReset }: Props) {
   const committed = answer !== null;
+  // Asked for, never volunteered — a hint on screen by default is scaffolding
+  // the reader did not want.
+  const [hintShown, setHintShown] = useState(false);
   // Authored kinds fall back to the raw kind name.
   const gloss = KIND_LABELS[question.kind.toLowerCase()];
 
@@ -49,6 +53,32 @@ export function McqPanel({ question, answer, width, onAnswer, onReset }: Props) 
           />
         ))}
       </div>
+
+      {/* Sets generated before hints existed carry none, and the explanation
+          supersedes the nudge once an answer is committed. */}
+      {!committed && question.hint && (
+        <div className="mt-2">
+          <button
+            type="button"
+            onClick={() => setHintShown((shown) => !shown)}
+            aria-expanded={hintShown}
+            className="flex items-center gap-1 text-[12px] leading-none text-[var(--color-text-muted)] transition-colors duration-100 hover:text-[var(--color-text)]"
+          >
+            <Lightbulb size={12} />
+            Hint
+            <ChevronDown
+              size={12}
+              className="transition-transform duration-100"
+              style={{ transform: hintShown ? 'rotate(180deg)' : undefined }}
+            />
+          </button>
+          {hintShown && (
+            <p className="mt-2 rounded-[4px] border border-[var(--color-border)] bg-[var(--color-surface)] p-3 text-[13px] leading-[1.5] text-[var(--color-text)]">
+              {question.hint}
+            </p>
+          )}
+        </div>
+      )}
 
       {/* Shortcut hint on pointer devices only: it is noise on a phone, where
           there is no keyboard to use. */}

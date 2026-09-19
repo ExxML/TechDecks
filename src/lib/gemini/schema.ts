@@ -59,6 +59,9 @@ export const McqSchema = z.object({
   kind: z.string().min(1).max(40), // preset or author-defined
   question: z.string().min(10),
   options: z.array(z.object({ text: z.string().min(1) })).length(4),
+  /** Optional: sets generated before hints existed carry none, and the panel
+   *  hides the control rather than backfilling them. */
+  hint: z.string().min(10).optional(),
   explanation: z.string().min(10),
   correct_index: z.number().int().min(0).max(3),
 });
@@ -96,8 +99,9 @@ export const mcqSetSchema = (requestedKinds: readonly string[]) =>
  * Gemini's `responseSchema` — OpenAPI-subset, not JSON Schema, so it is built
  * by hand rather than derived from Zod.
  *
- * `propertyOrdering` matters: `explanation` comes BEFORE `correct_index` so the
- * model reasons through the answer before committing to an index.
+ * `propertyOrdering` matters: `hint` then `explanation` come BEFORE
+ * `correct_index`, so the model writes the nudge and reasons through the answer
+ * before committing to an index.
  */
 export function buildResponseSchema(kindCount: number) {
   return {
@@ -123,11 +127,19 @@ export function buildResponseSchema(kindCount: number) {
                 propertyOrdering: ['text'],
               },
             },
+            hint: { type: 'STRING' },
             explanation: { type: 'STRING' },
             correct_index: { type: 'INTEGER' },
           },
-          required: ['kind', 'question', 'options', 'explanation', 'correct_index'],
-          propertyOrdering: ['kind', 'question', 'options', 'explanation', 'correct_index'],
+          required: ['kind', 'question', 'options', 'hint', 'explanation', 'correct_index'],
+          propertyOrdering: [
+            'kind',
+            'question',
+            'options',
+            'hint',
+            'explanation',
+            'correct_index',
+          ],
         },
       },
     },

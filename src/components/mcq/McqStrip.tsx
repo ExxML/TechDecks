@@ -156,7 +156,9 @@ export function McqStrip({
         >
           {set.questions.map((q, i) => (
             <McqPanel
-              key={i}
+              // Keyed by set, so a regenerated question starts with its hint
+              // collapsed rather than inheriting the previous set's state.
+              key={`${set.id}:${i}`}
               question={q}
               answer={set.answers[i] ?? null}
               width={pageSize}

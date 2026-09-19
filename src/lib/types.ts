@@ -11,7 +11,10 @@ export type Difficulty = 'easy' | 'medium' | 'hard';
 export type CodeSnippet = {
   readonly lang: string;
   readonly langSlug: string;
-  readonly code: string;
+  /** Absent on anything read for the browser, which needs only the language
+   *  names — the signature is prompt input and stays server-side. See
+   *  0013_metadata_projection.sql. */
+  readonly code?: string;
 };
 
 /** `metadata` for source_id = 'leetcode'. Every field is optional — paid-only
@@ -144,7 +147,11 @@ export type SearchHit = {
   readonly slug: string;
   readonly title: string;
   readonly difficulty: Difficulty | null;
-  readonly metadata: LeetCodeMetadata;
+  /** A result row renders an acceptance rate and nothing else from the
+   *  problem's metadata, so the RPC returns that one field rather than the
+   *  column — see 0013_metadata_projection.sql. Shaped as metadata all the same,
+   *  so a hit still satisfies CompactListItem alongside ContentItem. */
+  readonly metadata: Pick<LeetCodeMetadata, 'acRate'>;
   readonly sort_key: number | null;
   readonly source_id: string;
   readonly visibility: 'public' | 'private';

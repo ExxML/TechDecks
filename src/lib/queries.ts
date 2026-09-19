@@ -74,6 +74,40 @@ function mapRow(row: RawRow): ContentItem {
   };
 }
 
+/**
+ * The metadata a card carries to the browser.
+ *
+ * `metadata` is the sync's capture of everything LeetCode returns, and a row
+ * read through PostgREST arrives with all of it — the column is jsonb, so the
+ * select cannot narrow it the way `feed_page` does. Anything bound for the
+ * client is trimmed here to match that projection, field for field.
+ *
+ * `hints`, `exampleTestcases` and each snippet's `code` are prompt input and
+ * stay server-side, where the generate route reads the column whole. The
+ * snippets themselves are kept, minus that code: the language picker names them
+ * and the grounded flag counts them.
+ */
+function clientMetadata(metadata: LeetCodeMetadata): LeetCodeMetadata {
+  const { acRate, frontendId, isPaidOnly, likes, dislikes, kinds, language, codeSnippets } =
+    metadata;
+  return {
+    acRate,
+    frontendId,
+    isPaidOnly,
+    likes,
+    dislikes,
+    kinds,
+    language,
+    codeSnippets: codeSnippets?.map((s) => ({ lang: s.lang, langSlug: s.langSlug })),
+  };
+}
+
+/** `mapRow` with the metadata trimmed for the client. See clientMetadata. */
+function mapClientRow(row: RawRow): ContentItem {
+  const item = mapRow(row);
+  return { ...item, metadata: clientMetadata(item.metadata) };
+}
+
 /** A fresh shuffle seed. One per feed load — see FeedCursor. */
 export function newFeedSeed(): string {
   return Math.random().toString(36).slice(2, 10);
@@ -148,7 +182,7 @@ export async function fetchItemBySlug(
 
   if (error) throw new Error(`slug lookup failed: ${error.message}`);
   const rows = (data ?? []) as unknown as RawRow[];
-  return rows.length > 0 ? mapRow(rows[0]) : null;
+  return rows.length > 0 ? mapClientRow(rows[0]) : null;
 }
 
 /**
@@ -245,7 +279,7 @@ export async function fetchItemsBySlugs(
 
   const bySlug = new Map<string, ContentItem>();
   for (const row of (data ?? []) as unknown as RawRow[]) {
-    const item = mapRow(row);
+    const item = mapClientRow(row);
     if (!bySlug.has(item.slug)) bySlug.set(item.slug, item);
   }
   // Slugs that resolved to nothing are dropped rather than rendered blank.
@@ -264,7 +298,7 @@ type SearchRow = {
   slug: string;
   title: string;
   difficulty: string | null;
-  metadata: unknown;
+  ac_rate: number | string | null;
   sort_key: number | null;
   source_id: string;
   visibility: string;
@@ -317,9 +351,13 @@ export function cachedSearchPage(filters: SearchFilters, scope: SearchScope): Se
  * Drops every cached page. Called when the rows themselves change underneath
  * the cache — a sign-in swaps whose bookmarks and history these are, and a
  * bookmark toggle changes which rows /bookmarks returns.
+ *
+ * The tag counts go with them: `list_tags_with_counts` is security invoker, so
+ * a signed-in caller's own authored problems count toward it.
  */
 export function clearSearchCache(): void {
   firstPages.clear();
+  tagCounts = null;
 }
 
 /**
@@ -371,10 +409,9 @@ export async function searchContentItems(
         r.difficulty === 'easy' || r.difficulty === 'medium' || r.difficulty === 'hard'
           ? r.difficulty
           : null,
-      metadata:
-        typeof r.metadata === 'object' && r.metadata !== null
-          ? (r.metadata as LeetCodeMetadata)
-          : {},
+      // PostgREST renders `numeric` as a string to keep its precision, which
+      // this column does not need.
+      metadata: { acRate: r.ac_rate === null ? null : Number(r.ac_rate) },
       sort_key: r.sort_key,
       source_id: r.source_id,
       visibility: r.visibility === 'private' ? 'private' : 'public',
@@ -389,15 +426,33 @@ export async function searchContentItems(
   return page;
 }
 
-/** Tags that actually have matchable problems, most-used first. */
-export async function fetchTagCounts(db: SupabaseClient): Promise<readonly TagCount[]> {
-  const { data, error } = await db.rpc('list_tags_with_counts');
-  if (error) throw new Error(`tag list failed: ${error.message}`);
-  return ((data ?? []) as Array<{ slug: string; name: string; item_count: number }>).map((t) => ({
-    slug: t.slug,
-    name: t.name,
-    count: Number(t.item_count),
-  }));
+/**
+ * Tags that actually have matchable problems, most-used first.
+ *
+ * Memoized until the caller's identity changes. The filter sheet is remounted
+ * on every open, and the counts move only when the catalog syncs or the caller
+ * authors a problem, so refetching per open was the whole list again for an
+ * answer that had not changed. The promise itself is cached, so two opens in
+ * flight at once share one request; `clearSearchCache` drops it on a sign-in,
+ * which is what keeps one user's authored rows out of the next one's counts.
+ */
+let tagCounts: Promise<readonly TagCount[]> | null = null;
+
+export function fetchTagCounts(db: SupabaseClient): Promise<readonly TagCount[]> {
+  tagCounts ??= (async () => {
+    try {
+      const { data, error } = await db.rpc('list_tags_with_counts');
+      if (error) throw new Error(`tag list failed: ${error.message}`);
+      return ((data ?? []) as Array<{ slug: string; name: string; item_count: number }>).map(
+        (t) => ({ slug: t.slug, name: t.name, count: Number(t.item_count) }),
+      );
+    } catch (err) {
+      // A failed fetch must not be the cached answer forever: the next open retries.
+      tagCounts = null;
+      throw err;
+    }
+  })();
+  return tagCounts;
 }
 
 /* ------------------------------------------------------------------ *

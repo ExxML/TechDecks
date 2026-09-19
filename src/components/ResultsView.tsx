@@ -193,7 +193,8 @@ export function ResultsView({ scope, basePath, from, emptyMessage, renderAction 
     (filters.acMin !== null ? 1 : 0) +
     (filters.acMax !== null ? 1 : 0) +
     // Already implied by the scope, so it is not a filter the reader applied.
-    (filters.bookmarkedOnly && scope === 'catalog' ? 1 : 0);
+    (filters.bookmarkedOnly && scope === 'catalog' ? 1 : 0) +
+    (filters.withMcqsOnly ? 1 : 0);
 
   // Carried into the feed so it pages through these results in this order. The
   // filters travel rather than the ids: the feed re-runs the same search

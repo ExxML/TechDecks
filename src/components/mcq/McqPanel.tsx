@@ -57,7 +57,7 @@ export function McqPanel({ question, answer, width, onAnswer, onReset }: Props) 
       {/* Sets generated before hints existed carry none, and the explanation
           supersedes the nudge once an answer is committed. */}
       {!committed && question.hint && (
-        <div className="mt-2">
+        <div className="mt-4">
           <button
             type="button"
             onClick={() => setHintShown((shown) => !shown)}
@@ -78,14 +78,6 @@ export function McqPanel({ question, answer, width, onAnswer, onReset }: Props) 
             </p>
           )}
         </div>
-      )}
-
-      {/* Shortcut hint on pointer devices only: it is noise on a phone, where
-          there is no keyboard to use. */}
-      {!committed && (
-        <p className="mt-2 hidden text-[12px] leading-none text-[var(--color-text-muted)] [@media(any-hover:hover)]:block">
-          Press 1–4 to answer · ← → to move
-        </p>
       )}
 
       {committed && (

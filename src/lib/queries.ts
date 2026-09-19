@@ -339,6 +339,7 @@ function searchKey(filters: SearchFilters, scope: SearchScope): string {
     filters.acMin,
     filters.acMax,
     filters.bookmarkedOnly,
+    filters.withMcqsOnly,
   ]);
 }
 
@@ -395,6 +396,7 @@ export async function searchContentItems(
     p_offset: offset,
     p_visited: s.visited,
     p_order: s.order,
+    p_has_mcqs: filters.withMcqsOnly,
   });
 
   if (error) throw new Error(`search failed: ${error.message}`);

@@ -45,6 +45,7 @@ export function filtersFromParams(params: URLSearchParams): SearchFilters {
     acMin: acMin !== null && acMax !== null && acMin > acMax ? acMax : acMin,
     acMax: acMin !== null && acMax !== null && acMin > acMax ? acMin : acMax,
     bookmarkedOnly: params.get('bookmarked') === '1',
+    withMcqsOnly: params.get('mcqs') === '1',
   };
 }
 
@@ -57,6 +58,7 @@ export function paramsFromFilters(filters: SearchFilters): URLSearchParams {
   if (filters.acMin !== null) params.set('acMin', String(filters.acMin));
   if (filters.acMax !== null) params.set('acMax', String(filters.acMax));
   if (filters.bookmarkedOnly) params.set('bookmarked', '1');
+  if (filters.withMcqsOnly) params.set('mcqs', '1');
   return params;
 }
 

@@ -153,6 +153,24 @@ export function FilterSheet({ open, onClose, filters, onApply, scope = 'catalog'
         </section>
       )}
 
+      {/* Generated sets are per-user rows behind RLS, and an anonymous user's
+          live in localStorage where the search cannot reach them — so this is
+          hidden rather than shown matching nothing. Unlike the bookmark
+          toggle it applies to every scope: no list is already only these. */}
+      {user && (
+        <section className="mt-4">
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={draft.withMcqsOnly}
+              onChange={(e) => setDraft((f) => ({ ...f, withMcqsOnly: e.target.checked }))}
+              className="h-4 w-4 accent-[var(--color-accent)]"
+            />
+            <span className="text-[13px] text-[var(--color-text)]">Has generated MCQs</span>
+          </label>
+        </section>
+      )}
+
       <section className="mt-4">
         <h3 className="mb-2 text-[12px] text-[var(--color-text-muted)]">
           Topics {draft.tags.length > 0 && `· ${draft.tags.length} selected`}
@@ -218,6 +236,7 @@ export function FilterSheet({ open, onClose, filters, onApply, scope = 'catalog'
               acMin: null,
               acMax: null,
               bookmarkedOnly: false,
+              withMcqsOnly: false,
             }))
           }
         >

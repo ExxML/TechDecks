@@ -114,6 +114,9 @@ export type SearchFilters = {
   readonly acMin: number | null;
   readonly acMax: number | null;
   readonly bookmarkedOnly: boolean;
+  /** Problems the caller has generated at least one MCQ set for. Signed-in
+   *  only: anonymous sets live in localStorage and the search never sees them. */
+  readonly withMcqsOnly: boolean;
 };
 
 export const EMPTY_FILTERS: SearchFilters = {
@@ -123,6 +126,7 @@ export const EMPTY_FILTERS: SearchFilters = {
   acMin: null,
   acMax: null,
   bookmarkedOnly: false,
+  withMcqsOnly: false,
 };
 
 /** True when a filter set would return the whole catalog unchanged. */
@@ -133,7 +137,8 @@ export function filtersAreEmpty(f: SearchFilters): boolean {
     f.tags.length === 0 &&
     f.acMin === null &&
     f.acMax === null &&
-    !f.bookmarkedOnly
+    !f.bookmarkedOnly &&
+    !f.withMcqsOnly
   );
 }
 

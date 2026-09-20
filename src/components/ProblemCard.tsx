@@ -1,11 +1,10 @@
-'use client';
+"use client";
 
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { ChevronLeft } from 'lucide-react';
-import { ProblemHeader } from './ProblemHeader';
-import { ProblemBody } from './ProblemBody';
-import { McqController } from './mcq/McqController';
-import type { ContentItem } from '@/lib/types';
+import { useCallback, useEffect, useRef, useState } from "react";
+import { ProblemHeader } from "./ProblemHeader";
+import { ProblemBody } from "./ProblemBody";
+import { McqController } from "./mcq/McqController";
+import type { ContentItem } from "@/lib/types";
 
 type Props = {
   readonly item: ContentItem;
@@ -21,12 +20,17 @@ type Props = {
 /**
  * One full-viewport card in one of two states that never coexist: Reading
  * (scrollable body carrying the problem header, the description and the action
- * bar) and Questions (one-line title bar, then the MCQ strip).
+ * bar) and Questions (the MCQ strip).
  *
  * The body is an ordinary scroller, panned by the browser. Paging is the
  * perpendicular axis, so a long description never traps the reader on the card.
  */
-export function ProblemCard({ item, active, inQuestions, onQuestionsChange }: Props) {
+export function ProblemCard({
+  item,
+  active,
+  inQuestions,
+  onQuestionsChange,
+}: Props) {
   // The fade only means "more below", so it must vanish at the end of the body
   // and for bodies too short to scroll at all.
   const bodyRef = useRef<HTMLDivElement | null>(null);
@@ -54,30 +58,10 @@ export function ProblemCard({ item, active, inQuestions, onQuestionsChange }: Pr
   return (
     <article
       data-slug={item.slug}
-      // Row template tracks the children actually rendered: State B adds the
-      // title bar, State A is the scroller alone and must get the whole card —
-      // an unused `auto` track would size that row to content instead.
-      className={`grid h-full w-full border-r border-[var(--color-border)] bg-[var(--color-bg)] ${
-        inQuestions ? 'grid-rows-[auto_1fr]' : 'grid-rows-[1fr]'
-      }`}
+      // Both states render a single child that must get the whole card, so the
+      // one row is always 1fr.
+      className="grid h-full w-full grid-rows-[1fr] border-r border-[var(--color-border)] bg-[var(--color-bg)]"
     >
-      {/* State B: header collapses to one line with a way back. */}
-      {inQuestions && (
-        <div className="flex items-center gap-2 border-b border-[var(--color-border)] px-3 py-2.5">
-          <button
-            type="button"
-            onClick={() => onQuestionsChange(false)}
-            className="flex items-center gap-1 text-[13px] text-[var(--color-text-muted)] transition-colors duration-100 hover:text-[var(--color-text)]"
-          >
-            <ChevronLeft size={16} />
-            Description
-          </button>
-          <span className="min-w-0 flex-1 truncate text-right text-[13px] text-[var(--color-text)]">
-            {item.title}
-          </span>
-        </div>
-      )}
-
       {/* 1fr row. ProblemBody is NOT visible in State B. */}
       {inQuestions ? (
         <McqController
@@ -95,7 +79,7 @@ export function ProblemCard({ item, active, inQuestions, onQuestionsChange }: Pr
           // The browser owns vertical panning here, so reading a description
           // runs on the compositor with native momentum. Horizontal is left
           // to the feed's pager, which pages cards on that axis.
-          style={{ touchAction: 'pan-y' }}
+          style={{ touchAction: "pan-y" }}
         >
           {/* min-h-full so a description shorter than the card still carries the
               action bar to the bottom edge, via the mt-auto below. */}
@@ -116,7 +100,8 @@ export function ProblemCard({ item, active, inQuestions, onQuestionsChange }: Pr
               <div
                 className="pointer-events-none absolute inset-x-0 bottom-full h-8 transition-opacity duration-100"
                 style={{
-                  background: 'linear-gradient(to top, var(--color-bg), transparent)',
+                  background:
+                    "linear-gradient(to top, var(--color-bg), transparent)",
                   opacity: atBodyEnd ? 0 : 1,
                 }}
                 aria-hidden="true"

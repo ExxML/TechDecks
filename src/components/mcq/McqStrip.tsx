@@ -1,12 +1,12 @@
-'use client';
+"use client";
 
-import { useEffect, useRef, useState } from 'react';
-import { McqPanel } from './McqPanel';
-import { McqSummary } from './McqSummary';
-import { McqStepper } from './McqStepper';
-import { usePager } from '@/lib/pager';
-import { shouldIgnoreShortcut } from '@/lib/keyboard';
-import type { McqSet } from '@/lib/mcq/store';
+import { useEffect, useRef, useState } from "react";
+import { McqPanel } from "./McqPanel";
+import { McqSummary } from "./McqSummary";
+import { McqStepper } from "./McqStepper";
+import { usePager } from "@/lib/pager";
+import { shouldIgnoreShortcut } from "@/lib/keyboard";
+import type { McqSet } from "@/lib/mcq/store";
 
 type Props = {
   readonly set: McqSet;
@@ -21,7 +21,8 @@ type Props = {
   /** Clears one question's answer, leaving the rest of the set's progress. */
   readonly onResetOne: (index: number) => void;
   readonly onRegenerate: () => void;
-  /** Escape leaves the question flow and returns to the description. */
+  /** Escape, and the stepper's Description button, leave the question flow and
+   *  return to the description. */
   readonly onExit?: () => void;
 };
 
@@ -63,7 +64,7 @@ export function McqStrip({
   }, []);
 
   const pager = usePager({
-    axis: 'x',
+    axis: "x",
     count: panelCount,
     index: at,
     onIndexChange: setPanel,
@@ -74,11 +75,20 @@ export function McqStrip({
     isolate: true,
   });
 
-  const answeredFlags = set.questions.map((_, i) => (set.answers[i] ?? null) !== null);
+  const answeredFlags = set.questions.map(
+    (_, i) => (set.answers[i] ?? null) !== null,
+  );
 
   // Mirrors of what the key handler needs, so the listener is bound once rather
   // than torn down and rebuilt on every panel change or answer.
-  const stateRef = useRef({ at, set, active, onAnswer, onExit, goTo: pager.goTo });
+  const stateRef = useRef({
+    at,
+    set,
+    active,
+    onAnswer,
+    onExit,
+    goTo: pager.goTo,
+  });
   useEffect(() => {
     stateRef.current = { at, set, active, onAnswer, onExit, goTo: pager.goTo };
   });
@@ -93,21 +103,28 @@ export function McqStrip({
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (shouldIgnoreShortcut(e)) return;
-      const { at: panel, set: current, active: on, onAnswer: answer, onExit: exit, goTo } = stateRef.current;
+      const {
+        at: panel,
+        set: current,
+        active: on,
+        onAnswer: answer,
+        onExit: exit,
+        goTo,
+      } = stateRef.current;
       if (!on) return;
       const lastPanel = current.questions.length; // the summary
 
-      if (e.key === 'ArrowRight') {
+      if (e.key === "ArrowRight") {
         e.preventDefault();
         goTo(Math.min(panel + 1, lastPanel));
         return;
       }
-      if (e.key === 'ArrowLeft') {
+      if (e.key === "ArrowLeft") {
         e.preventDefault();
         goTo(Math.max(panel - 1, 0));
         return;
       }
-      if (e.key === 'Escape' && exit) {
+      if (e.key === "Escape" && exit) {
         e.preventDefault();
         exit();
         return;
@@ -119,8 +136,8 @@ export function McqStrip({
       // keyboard any more than by tap.
       if ((current.answers[panel] ?? null) !== null) return;
 
-      const fromDigit = '1234'.indexOf(e.key);
-      const fromLetter = 'abcd'.indexOf(e.key.toLowerCase());
+      const fromDigit = "1234".indexOf(e.key);
+      const fromLetter = "abcd".indexOf(e.key.toLowerCase());
       const choice = fromDigit >= 0 ? fromDigit : fromLetter;
       if (choice >= 0) {
         e.preventDefault();
@@ -128,8 +145,8 @@ export function McqStrip({
       }
     };
 
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
   return (
@@ -142,7 +159,7 @@ export function McqStrip({
         className="relative min-h-0 overflow-hidden"
         // This pager owns the horizontal axis, and the panels opt back into
         // vertical panning themselves — see the feed root.
-        style={{ touchAction: 'none' }}
+        style={{ touchAction: "none" }}
         {...pager.handlers}
       >
         <div
@@ -150,8 +167,10 @@ export function McqStrip({
           style={{
             width: panelCount * pageSize,
             transform: `translate3d(${pager.offset}px, 0, 0)`,
-            transition: pager.dragging ? 'none' : 'transform 260ms cubic-bezier(0.22, 1, 0.36, 1)',
-            visibility: pageSize ? undefined : 'hidden',
+            transition: pager.dragging
+              ? "none"
+              : "transform 260ms cubic-bezier(0.22, 1, 0.36, 1)",
+            visibility: pageSize ? undefined : "hidden",
           }}
         >
           {set.questions.map((q, i) => (
@@ -182,6 +201,7 @@ export function McqStrip({
         active={at}
         answered={[...answeredFlags, false]}
         onSelect={pager.goTo}
+        onExit={() => onExit?.()}
       />
     </div>
   );

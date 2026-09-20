@@ -1,7 +1,9 @@
 import { z } from 'zod';
 
 /**
- * Single source of truth for Gemini I/O.
+ * Single source of truth for the shape of Gemini I/O: what a valid MCQ is and
+ * which kinds a problem requests. What to actually ask for each kind lives in
+ * `prompt.ts`.
  *
  * These schemas drive three things at once: Gemini's `responseSchema`, the
  * runtime parse of what comes back, and the TypeScript types. Never
@@ -10,17 +12,6 @@ import { z } from 'zod';
 
 /** The fixed four for synced problems. Authored problems define their own. */
 export const PRESET_KINDS = ['approach', 'algorithm', 'complexity', 'solution'] as const;
-
-/**
- * Eyebrow labels. Authored kinds fall back to the raw kind name, which is why
- * this is a lookup rather than an exhaustive Record over PRESET_KINDS.
- */
-export const KIND_LABELS: Readonly<Record<string, string>> = {
-  approach: 'Understand the problem-solving strategy',
-  algorithm: 'Learn the optimal solution method',
-  complexity: 'Master Big O time and space analysis',
-  solution: 'Choose the best complete final solution',
-};
 
 /**
  * The kinds a problem generates, and whether that generation is grounded.

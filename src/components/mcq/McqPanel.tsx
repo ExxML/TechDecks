@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { ChevronDown, Lightbulb, RotateCcw } from 'lucide-react';
 import { McqOption } from './McqOption';
-import { KIND_LABELS, type Mcq } from '@/lib/gemini/schema';
+import type { Mcq } from '@/lib/gemini/schema';
 import type { McqAnswer } from '@/lib/mcq/store';
 
 type Props = {
@@ -24,8 +24,6 @@ export function McqPanel({ question, answer, width, onAnswer, onReset }: Props) 
   // Asked for, never volunteered — a hint on screen by default is scaffolding
   // the reader did not want.
   const [hintShown, setHintShown] = useState(false);
-  // Authored kinds fall back to the raw kind name.
-  const gloss = KIND_LABELS[question.kind.toLowerCase()];
 
   return (
     <div
@@ -35,7 +33,6 @@ export function McqPanel({ question, answer, width, onAnswer, onReset }: Props) 
     >
       <p className="pt-3 pb-2 text-[12px] leading-none tracking-wide text-[var(--color-text-muted)] uppercase">
         {question.kind}
-        {gloss ? ` · ${gloss}` : ''}
       </p>
 
       <p className="mb-3 text-[14px] leading-[1.5] text-[var(--color-text)]">{question.question}</p>
@@ -45,6 +42,7 @@ export function McqPanel({ question, answer, width, onAnswer, onReset }: Props) 
           <McqOption
             key={i}
             text={opt.text}
+            kind={question.kind}
             index={i}
             selected={answer?.selected_index === i}
             isCorrect={question.correct_index === i}

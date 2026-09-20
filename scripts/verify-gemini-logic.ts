@@ -255,13 +255,21 @@ console.log('\n=== prompt conditional slots ===');
 
   const noLang = buildPrompt({ ...base, language: null, signature: null });
   check('omits the language slot entirely when absent', !noLang.includes('Target language'));
-  check(
-    'drops code-block assertion and asks for prose instead',
-    noLang.includes('precise prose or pseudocode'),
-  );
+  check('falls back to pseudocode when no language', noLang.includes('language-agnostic pseudocode'));
 
   const noSolution = buildPrompt({ ...base, kinds: ['bottleneck'], language: null });
-  check('no prose fallback when solution kind not requested', !noSolution.includes('precise prose or pseudocode'));
+  check('no pseudocode fallback when solution kind not requested', !noSolution.includes('language-agnostic pseudocode'));
+  check('bottleneck kind now carries a rule', noSolution.includes('which step dominates cost'));
+
+  const authored = buildPrompt({ ...base, kinds: ['scaling', 'probability', 'concurrency'], language: null });
+  check(
+    'added KIND_RULES cover system design, quant, and low-level kinds',
+    authored.includes('sharding key') && authored.includes('closed-form') && authored.includes('memory-ordering'),
+  );
+  check(
+    'system instruction pins option homogeneity and answer spread',
+    SYSTEM_INSTRUCTION.includes('same level of detail') && SYSTEM_INSTRUCTION.includes('Vary which index is correct'),
+  );
 
   const hinted = buildPrompt({ ...base, hints: ['Use a hash map'], language: null });
   check('includes hints when present (grounding ladder tier 2)', hinted.includes('Use a hash map'));

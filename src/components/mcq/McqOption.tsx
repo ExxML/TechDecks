@@ -1,5 +1,7 @@
 type Props = {
   readonly text: string;
+  /** Solution options are always code, whatever they look like. */
+  readonly kind: string;
   readonly index: number;
   readonly selected: boolean;
   readonly isCorrect: boolean;
@@ -9,7 +11,7 @@ type Props = {
 
 const LETTERS = ['A', 'B', 'C', 'D'];
 
-/** Multi-line code blocks render as code; short prose renders as prose. */
+/** Fallback for other kinds: multi-line or code-shaped text renders as code. */
 function isCodeLike(text: string): boolean {
   return text.includes('\n') || /^\s*(class|def|function|public|const|let|var|for|while|if)\b/.test(text);
 }
@@ -19,7 +21,7 @@ function isCodeLike(text: string): boolean {
  * correct option borders green and a wrong choice borders red, with the correct
  * one still marked.
  */
-export function McqOption({ text, index, selected, isCorrect, committed, onSelect }: Props) {
+export function McqOption({ text, kind, index, selected, isCorrect, committed, onSelect }: Props) {
   let borderColor = 'var(--color-border)';
   let background = 'var(--color-surface-alt)';
 
@@ -33,7 +35,7 @@ export function McqOption({ text, index, selected, isCorrect, committed, onSelec
     }
   }
 
-  const code = isCodeLike(text);
+  const code = kind.toLowerCase() === 'solution' || isCodeLike(text);
 
   return (
     <button

@@ -82,6 +82,8 @@ export function KindEditor({ kinds, onChange }: Props) {
             return (
               <li
                 key={`${kind}-${i}`}
+                {...reorder.handleProps}
+                data-index={i}
                 style={{
                   transform: `translateY(${lifted ? reorder.offset : reorder.shifts[i]}px)`,
                   // The lifted row rides above the rows it displaces, and its
@@ -93,23 +95,22 @@ export function KindEditor({ kinds, onChange }: Props) {
                   zIndex: lifted ? 1 : undefined,
                 }}
                 className={
-                  "relative flex items-center gap-2 rounded-[4px] border border-[var(--color-border)] " +
-                  "bg-[var(--color-surface-alt)] py-2 pr-3 pl-1.5 " +
+                  "relative flex touch-none items-center gap-2 rounded-[4px] border border-[var(--color-border)] " +
+                  "bg-[var(--color-surface-alt)] py-2 pr-3 pl-1.5 select-none " +
+                  (kinds.length > 1 ? "cursor-grab " : "") +
                   (lifted ? "shadow-[0_4px_12px_rgba(0,0,0,0.18)]" : "")
                 }
               >
-                <button
-                  type="button"
-                  {...reorder.handleProps}
-                  data-index={i}
-                  aria-label={`Reorder ${kind}`}
-                  disabled={kinds.length < 2}
-                  // The handle drives the gesture, so the browser must not pan
-                  // the page or long-press-select from it.
-                  className="touch-none cursor-grab text-[var(--color-text-muted)] transition-colors duration-100 select-none hover:text-[var(--color-text)] disabled:cursor-default disabled:opacity-40"
-                >
-                  <GripVertical size={16} />
-                </button>
+                {/* The whole row is the grab surface, so the grip is a label
+                    for the gesture rather than the thing that drives it. */}
+                <GripVertical
+                  size={16}
+                  aria-hidden
+                  className={
+                    "shrink-0 text-[var(--color-text-muted)] " +
+                    (kinds.length < 2 ? "opacity-40" : "")
+                  }
+                />
                 <span className="w-4 text-[12px] leading-none text-[var(--color-text-muted)]">
                   {i + 1}
                 </span>

@@ -33,9 +33,9 @@ export type Reorder = {
   /** Ref for the list element, which is measured for the slot height. */
   readonly ref: (node: HTMLElement | null) => void;
   /**
-   * Spread onto every row's drag handle, which carries its own position as
-   * `data-index`. One shared set of handlers rather than a set built per row,
-   * so rendering a row never has to call into this hook.
+   * Spread onto every row, which carries its own position as `data-index`.
+   * One shared set of handlers rather than a set built per row, so rendering a
+   * row never has to call into this hook.
    */
   readonly handleProps: {
     readonly onPointerDown: (e: React.PointerEvent) => void;
@@ -96,8 +96,9 @@ export function useReorder({ count, onReorder }: Options): Reorder {
     const attr = e.currentTarget.getAttribute('data-index');
     const index = attr === null ? NaN : Number(attr);
     if (dragRef.current || live.current.count < 2 || !Number.isInteger(index)) return;
-    // The handle is the only grab surface, so the gesture is unambiguous and
-    // the row's remove button stays clickable.
+    // Anywhere on the row grabs it, except the controls it carries: those keep
+    // their own press, so a remove button stays clickable.
+    if ((e.target as Element).closest('button, a, input, textarea, select')) return;
     e.preventDefault();
     const slot = measureSlot();
     if (slot === 0) return;
@@ -113,7 +114,7 @@ export function useReorder({ count, onReorder }: Options): Reorder {
       if (Math.abs(dy) < LIFT_SLOP) return;
       drag.lifted = true;
       setLift({ from: drag.from, slot: drag.slot });
-      // Capture so a fast drag leaving the handle still delivers its pointerup
+      // Capture so a fast drag leaving the row still delivers its pointerup
       // here, rather than stranding the row mid-lift.
       e.currentTarget.setPointerCapture(e.pointerId);
     }

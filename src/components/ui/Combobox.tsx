@@ -12,6 +12,9 @@ import { ChevronUp } from "lucide-react";
  * options, and rather than a <select>, which cannot accept free text.
  */
 
+/** Movement, in pixels, past which a press is a scroll rather than a tap. */
+const TAP_SLOP = 8;
+
 export type ComboboxGroup = {
   readonly label: string;
   readonly options: readonly {
@@ -44,6 +47,8 @@ export function Combobox({
   const [highlight, setHighlight] = useState(-1);
   const rootRef = useRef<HTMLDivElement>(null);
   const listId = useId();
+  /** Where a press on an option started, so a scroll is not read as a pick. */
+  const pressRef = useRef<{ id: number; x: number; y: number } | null>(null);
 
   const options = groups.flatMap((g) => g.options);
   const active = open && options.length > 0;
@@ -169,13 +174,42 @@ export function Combobox({
                         type="button"
                         role="option"
                         aria-selected={index === highlight}
-                        // Pointerdown again: committing on click would first
-                        // blur the field and dismiss the list out from under it.
+                        // A mouse press has its default suppressed so it
+                        // cannot blur the field and dismiss the list out from
+                        // under itself; a touch keeps its default, which is
+                        // what scrolls the list, so the commit waits for
+                        // pointerup and only lands if the finger stayed put.
                         onPointerDown={(e) => {
+                          if (e.pointerType === "mouse") e.preventDefault();
+                          pressRef.current = {
+                            id: e.pointerId,
+                            x: e.clientX,
+                            y: e.clientY,
+                          };
+                        }}
+                        onPointerUp={(e) => {
+                          const press = pressRef.current;
+                          pressRef.current = null;
+                          if (press?.id !== e.pointerId) return;
+                          const moved = Math.hypot(
+                            e.clientX - press.x,
+                            e.clientY - press.y,
+                          );
+                          if (moved > TAP_SLOP) return;
+                          // A touch commits without ever having focused the
+                          // field, so the click it would synthesise next has
+                          // nothing left to land on.
                           e.preventDefault();
                           commit(option.value);
                         }}
-                        onPointerEnter={() => setHighlight(index)}
+                        onPointerCancel={() => {
+                          pressRef.current = null;
+                        }}
+                        // Hover highlighting is a pointer affordance; on touch
+                        // it would leave a row marked after a scroll.
+                        onPointerEnter={(e) => {
+                          if (e.pointerType !== "touch") setHighlight(index);
+                        }}
                         className={
                           "block w-full px-3 py-1.5 text-left text-[14px] text-[var(--color-text)] " +
                           (index === highlight

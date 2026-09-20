@@ -32,8 +32,24 @@ export type FeedSession = {
 
 let session: FeedSession | null = null;
 
-export function saveFeedSession(next: FeedSession): void {
+/**
+ * The route the feed was last showing, for the tab bar to return to.
+ *
+ * `/problems` renders the shuffled feed, so a session entered from a result
+ * list could never be restored through that bare href — its origin would not
+ * match. The feed already rewrites the URL to the card it is on, filters and
+ * all; keeping that href is what lets the tab lead back into the same run.
+ */
+let href = '/problems';
+
+export function saveFeedSession(next: FeedSession, at: string): void {
   session = next;
+  href = at;
+}
+
+/** `/problems` as the reader left it, or the bare route when untouched. */
+export function feedHref(): string {
+  return href;
 }
 
 /** The stored session when it came from `origin`, otherwise null. */
@@ -43,4 +59,5 @@ export function takeFeedSession(origin: string): FeedSession | null {
 
 export function clearFeedSession(): void {
   session = null;
+  href = '/problems';
 }

@@ -193,17 +193,20 @@ export function ProblemFeed({
   // a navigation: metadata runs once, for the slug the route was entered with,
   // and `/problems` has no slug at all — so returning to this tab would
   // otherwise fall back to the layout's bare app name.
+  //
+  // The same href is what the tab bar returns to, so leaving the tab and coming
+  // back re-enters this run rather than the bare `/problems` shuffle.
+  const href = items[active]
+    ? `/problems/${items[active].slug}${listQuery ? `?${listQuery}` : ''}`
+    : null;
   useEffect(() => {
     const item = items[active];
-    if (!item) return;
-    // The list's params ride along, so a reload lands back in this same list at
-    // this same card rather than in the shuffled feed.
-    const href = `/problems/${item.slug}${listQuery ? `?${listQuery}` : ''}`;
+    if (!item || !href) return;
     if (window.location.pathname + window.location.search !== href) {
       window.history.replaceState(null, '', href);
     }
     document.title = pageTitle(item.title);
-  }, [active, items, listQuery]);
+  }, [active, items, href]);
 
   // Record the visit once the card has been dwelt on. The timer is what keeps
   // history a record of what was read rather than of what was swiped past; it
@@ -222,9 +225,9 @@ export function ProblemFeed({
   // Checkpoint the position for a return to this tab. Written on every change
   // rather than on unmount, which a tab switch does not reliably reach.
   useEffect(() => {
-    if (items.length === 0) return;
-    saveFeedSession({ items, cursor, index: active, origin });
-  }, [items, cursor, active, origin]);
+    if (items.length === 0 || !href) return;
+    saveFeedSession({ items, cursor, index: active, origin }, href);
+  }, [items, cursor, active, origin, href]);
 
   const pager = usePager({
     axis: 'x',

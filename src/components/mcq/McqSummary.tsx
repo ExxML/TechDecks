@@ -1,6 +1,7 @@
 import { RotateCcw } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Badge } from '../ui/Badge';
+import { kindLabel } from '@/lib/gemini/schema';
 import type { McqSet } from '@/lib/mcq/store';
 
 type Props = {
@@ -55,7 +56,7 @@ export function McqSummary({ set, grounded, width, onRetry, onResetOne, onRegene
               className="flex items-center justify-between gap-2 rounded-[4px] border border-[var(--color-border)] px-3 py-2"
             >
               <span className="min-w-0 flex-1 truncate text-[13px] text-[var(--color-text)]">
-                {q.kind}
+                {kindLabel(q.kind)}
               </span>
               <span
                 className="text-[12px] leading-none"
@@ -75,7 +76,7 @@ export function McqSummary({ set, grounded, width, onRetry, onResetOne, onRegene
                 <button
                   type="button"
                   onClick={() => onResetOne(i)}
-                  aria-label={`Reset ${q.kind}`}
+                  aria-label={`Reset ${kindLabel(q.kind)}`}
                   className="shrink-0 text-[var(--color-text-muted)] transition-colors duration-100 hover:text-[var(--color-text)]"
                 >
                   <RotateCcw size={13} />

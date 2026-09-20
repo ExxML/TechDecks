@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { ChevronDown, Lightbulb, RotateCcw } from 'lucide-react';
 import { McqOption } from './McqOption';
-import type { Mcq } from '@/lib/gemini/schema';
+import { kindLabel, type Mcq } from '@/lib/gemini/schema';
 import type { McqAnswer } from '@/lib/mcq/store';
 
 type Props = {
@@ -31,8 +31,8 @@ export function McqPanel({ question, answer, width, onAnswer, onReset }: Props) 
       // Vertical panning is the browser's — see ProblemCard's description body.
       style={{ width, touchAction: 'pan-y' }}
     >
-      <p className="pt-3 pb-2 text-[12px] leading-none tracking-wide text-[var(--color-text-muted)] uppercase">
-        {question.kind}
+      <p className="pt-3 pb-2 text-[12px] leading-none tracking-wide text-[var(--color-text-muted)]">
+        {kindLabel(question.kind)}
       </p>
 
       <p className="mb-3 text-[14px] leading-[1.5] text-[var(--color-text)]">{question.question}</p>

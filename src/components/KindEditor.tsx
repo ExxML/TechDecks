@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { X, Plus, GripVertical } from "lucide-react";
 import { Combobox, type ComboboxGroup } from "./ui/Combobox";
-import { KIND_GROUPS } from "@/lib/gemini/schema";
+import { KIND_GROUPS, kindLabel } from "@/lib/gemini/schema";
 import { useReorder } from "@/lib/reorder";
 
 /**
@@ -23,12 +23,6 @@ export const MAX_KIND_LENGTH = 40;
 type Props = {
   readonly kinds: readonly string[];
   readonly onChange: (kinds: readonly string[]) => void;
-};
-
-/** Presets are stored snake_case; the menu reads better spaced out and capitalised. */
-const presetLabel = (k: string) => {
-  const spaced = k.replace(/_/g, " ");
-  return spaced.charAt(0).toUpperCase() + spaced.slice(1);
 };
 
 export function KindEditor({ kinds, onChange }: Props) {
@@ -65,9 +59,9 @@ export function KindEditor({ kinds, onChange }: Props) {
     label: group.label,
     options: group.kinds
       .filter(
-        (k) => !isDuplicate(k) && presetLabel(k).toLowerCase().includes(query),
+        (k) => !isDuplicate(k) && kindLabel(k).toLowerCase().includes(query),
       )
-      .map((k) => ({ value: k, label: presetLabel(k) })),
+      .map((k) => ({ value: k, label: kindLabel(k) })),
   })).filter((group) => group.options.length > 0);
 
   return (
@@ -115,12 +109,12 @@ export function KindEditor({ kinds, onChange }: Props) {
                   {i + 1}
                 </span>
                 <span className="min-w-0 flex-1 truncate text-[14px] text-[var(--color-text)]">
-                  {kind}
+                  {kindLabel(kind)}
                 </span>
                 <button
                   type="button"
                   onClick={() => remove(i)}
-                  aria-label={`Remove ${kind}`}
+                  aria-label={`Remove ${kindLabel(kind)}`}
                   className="text-[var(--color-text-muted)] transition-colors duration-100 hover:text-[var(--color-text)]"
                 >
                   <X size={16} />

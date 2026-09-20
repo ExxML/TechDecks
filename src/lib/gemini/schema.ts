@@ -44,6 +44,30 @@ export const KIND_GROUPS = [
   { label: 'Quant', kinds: ['probability', 'math', 'estimation'] },
 ] as const satisfies ReadonlyArray<{ label: string; kinds: readonly string[] }>;
 
+/** Preset slugs, flattened, for the membership check `kindLabel` does. */
+const PRESET_SLUGS: ReadonlySet<string> = new Set([
+  ...PRESET_KINDS,
+  ...KIND_GROUPS.flatMap((g) => g.kinds),
+]);
+
+/** Words that read wrong title-cased, since "Api Design" is not a thing. */
+const ACRONYMS: ReadonlySet<string> = new Set(['api']);
+
+/**
+ * How a kind is written wherever one is shown to a reader.
+ *
+ * Presets are stored snake_case and title-cased for display, so `edge_case`
+ * reads "Edge Case". An author-defined kind is passed through untouched: it is
+ * free text someone typed, and their own capitalisation is the intended one.
+ */
+export function kindLabel(kind: string): string {
+  if (!PRESET_SLUGS.has(kind)) return kind;
+  return kind
+    .split('_')
+    .map((w) => (ACRONYMS.has(w) ? w.toUpperCase() : w.charAt(0).toUpperCase() + w.slice(1)))
+    .join(' ');
+}
+
 /**
  * The kinds a problem generates, and whether that generation is grounded.
  *

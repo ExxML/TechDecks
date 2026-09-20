@@ -297,6 +297,9 @@ export function ResultsView({ scope, basePath, from, emptyMessage, renderAction 
               emptyMessage=""
               scrollable={false}
               hrefSuffix={hitHref}
+              // Every page loaded so far, from the top of the list, so a row's
+              // index is its position in the results.
+              offset={0}
               renderAction={renderAction && ((hit) => renderAction(hit, () => drop(hit.id)))}
             />
             {remaining > 0 && (

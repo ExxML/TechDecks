@@ -1,3 +1,4 @@
+import { cache, Suspense } from 'react';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { createClient } from '@/lib/supabase/server';
@@ -11,9 +12,22 @@ import {
 import { filtersFromParams, paramsFromFilters } from '@/lib/searchParams';
 import { pageTitle } from '@/lib/title';
 import { ProblemFeed } from '@/components/ProblemFeed';
+import { FeedSkeleton } from '@/components/FeedSkeleton';
 import type { FeedPage, SearchScope } from '@/lib/types';
 
 export const dynamic = 'force-dynamic';
+
+/**
+ * The slug row, fetched once per request.
+ *
+ * generateMetadata and the page body both need it, and both run for every
+ * navigation — without memoising, opening a card paid for the same row twice,
+ * serially, before anything could render.
+ */
+const itemBySlug = cache(async (slug: string) => {
+  const db = await createClient();
+  return fetchItemBySlug(db, slug);
+});
 
 type Props = {
   params: Promise<{ slug: string }>;
@@ -39,8 +53,7 @@ const FROM_SCOPE: Record<string, SearchScope> = {
  */
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
-  const db = await createClient();
-  const item = await fetchItemBySlug(db, slug);
+  const item = await itemBySlug(slug);
   if (!item) notFound();
   return { title: pageTitle(item.title) };
 }
@@ -55,10 +68,38 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
  */
 export default async function ProblemPage({ params, searchParams }: Props) {
   const { slug } = await params;
+
+  // Awaited here, outside the boundary below, so a missing slug still raises
+  // before anything streams — a notFound() behind a Suspense fallback would
+  // have already sent a 200. The row is the memoised one generateMetadata
+  // fetched, so this costs no second query.
+  if (!(await itemBySlug(slug))) notFound();
+
+  return (
+    <Suspense fallback={<FeedSkeleton />}>
+      <AnchoredFeed slug={slug} searchParams={searchParams} />
+    </Suspense>
+  );
+}
+
+/**
+ * The deck this card sits in.
+ *
+ * Split from the route so the card frame paints while the surrounding list is
+ * still being assembled: opening a hit deep in a result list re-runs the search
+ * to find it, and that is long enough to look like a dropped tap.
+ */
+async function AnchoredFeed({
+  slug,
+  searchParams,
+}: {
+  slug: string;
+  searchParams: Props['searchParams'];
+}) {
   const query = await searchParams;
   const db = await createClient();
 
-  const item = await fetchItemBySlug(db, slug);
+  const item = await itemBySlug(slug);
   if (!item) notFound();
 
   const from = typeof query.from === 'string' ? FROM_SCOPE[query.from] : undefined;
@@ -118,10 +159,40 @@ async function searchOrder(
   const params = paramsFromFilters(filtersFromParams(new URLSearchParams(flatten(query))));
   const filters = filtersFromParams(params);
 
-  const { hits, total } = await searchContentItems(db, filters, SEARCH_PAGE_SIZE, 0, scope);
+  // `?i=` is the row's own position in the list it was tapped in, so the page
+  // holding it is known without looking. Only a hint: a shared or reloaded link
+  // may have been written against a list that has since moved, so the slug is
+  // checked for and the walk below still runs when it is not there.
+  //
+  // The first page is fetched alongside it rather than after it, so a hint that
+  // misses costs no more than having sent none — the walk it falls back to
+  // starts there either way.
+  const hinted = Number(query.i);
+  const hintedOffset =
+    Number.isInteger(hinted) && hinted >= SEARCH_PAGE_SIZE
+      ? Math.floor(hinted / SEARCH_PAGE_SIZE) * SEARCH_PAGE_SIZE
+      : 0;
+
+  const [first, guess] = await Promise.all([
+    searchContentItems(db, filters, SEARCH_PAGE_SIZE, 0, scope),
+    hintedOffset > 0
+      ? searchContentItems(db, filters, SEARCH_PAGE_SIZE, hintedOffset, scope)
+      : null,
+  ]);
+
   let offset = 0;
-  let hit = hits.findIndex((h) => h.slug === slug);
-  let window = hits;
+  let { hits: window, total } = first;
+  let hit = window.findIndex((h) => h.slug === slug);
+
+  if (hit === -1 && guess) {
+    const found = guess.hits.findIndex((h) => h.slug === slug);
+    if (found !== -1) {
+      offset = hintedOffset;
+      window = guess.hits;
+      total = guess.total;
+      hit = found;
+    }
+  }
 
   // The list pages as it scrolls, so the hit is not necessarily in its first
   // page. Walk forward to the page holding it.
@@ -150,18 +221,25 @@ async function searchOrder(
   };
 }
 
-/** Array-valued params cannot occur here; the first value is the only one. */
+/**
+ * Params that name the list itself, rather than the way into it.
+ *
+ * `from` names the list and `i` names one row of it, so neither belongs to the
+ * list's identity — every row of one list must open the same run, or the feed
+ * session would be keyed per row and never restore. Dropped here, once, so
+ * anything derived from the query inherits that.
+ *
+ * Array-valued params cannot occur here; the first value is the only one.
+ */
 function flatten(query: Record<string, string | string[] | undefined>): Record<string, string> {
   return Object.fromEntries(
     Object.entries(query)
-      .filter(([, v]) => v !== undefined)
+      .filter(([k, v]) => v !== undefined && k !== 'from' && k !== 'i')
       .map(([k, v]) => [k, Array.isArray(v) ? (v[0] ?? '') : (v as string)]),
   );
 }
 
 /** Identifies one result list, so two different searches never share a session. */
 function originKey(query: Record<string, string | string[] | undefined>): string {
-  const flat = flatten(query);
-  delete flat.from;
-  return new URLSearchParams(Object.entries(flat).sort()).toString();
+  return new URLSearchParams(Object.entries(flatten(query)).sort()).toString();
 }

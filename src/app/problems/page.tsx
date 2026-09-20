@@ -1,4 +1,4 @@
-import { ProblemFeed } from '@/components/ProblemFeed';
+import { FeedShell } from '@/components/FeedShell';
 
 /**
  * The feed is the front door — no landing page, no hero.
@@ -11,5 +11,5 @@ import { ProblemFeed } from '@/components/ProblemFeed';
  * its own metadata and 404.
  */
 export default function ProblemsPage() {
-  return <ProblemFeed origin="feed" />;
+  return <FeedShell />;
 }

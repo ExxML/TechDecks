@@ -28,6 +28,10 @@ type Props<T extends CompactListItem> = {
   /** Appended to each row's href. /search passes its own params so the feed
    *  pages through the results in this order rather than the shuffled catalog. */
   readonly hrefSuffix?: string;
+  /** Position of the first row within the whole result list. Each row carries
+   *  its own on `?i=`, which is what saves the feed searching for it — so a
+   *  caller rendering a slice must say where the slice starts. */
+  readonly offset?: number;
 };
 
 /**
@@ -42,6 +46,7 @@ export function CompactList<T extends CompactListItem>({
   renderAction,
   scrollable = true,
   hrefSuffix = '',
+  offset = 0,
 }: Props<T>) {
   if (items.length === 0) {
     // An empty message is only meaningful when this component owns the viewport;
@@ -56,11 +61,11 @@ export function CompactList<T extends CompactListItem>({
 
   return (
     <ul className={scrollable ? 'h-[calc(100dvh-48px)] overflow-y-auto' : undefined}>
-      {items.map((item) => (
+      {items.map((item, i) => (
         <li key={item.id} className="border-b border-[var(--color-border)]">
           <div className="flex h-[56px] items-center gap-3 px-4">
             <Link
-              href={`/problems/${item.slug}${hrefSuffix}`}
+              href={`/problems/${item.slug}${hrefSuffix}${hrefSuffix ? `&i=${offset + i}` : ''}`}
               className="flex min-w-0 flex-1 flex-col gap-1"
               draggable={false}
             >

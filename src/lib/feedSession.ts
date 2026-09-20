@@ -47,9 +47,37 @@ export function saveFeedSession(next: FeedSession, at: string): void {
   href = at;
 }
 
-/** `/problems` as the reader left it, or the bare route when untouched. */
+/**
+ * Where the Problems tab leads.
+ *
+ * A live session is a complete feed — items, cursor and position — and
+ * `ProblemFeed` prefers it over anything the route fetches. Returning through
+ * the slug href would make `/problems/[slug]` re-derive that list server-side
+ * only for the restore to discard it, so the tab goes to the static shell and
+ * the feed rewrites the URL back to the card it lands on.
+ *
+ * Without a session there is nothing to restore, and the slug href is what
+ * carries the reader back to where they were.
+ */
 export function feedHref(): string {
-  return href;
+  return session ? '/problems' : href;
+}
+
+/**
+ * The run `/problems` would restore, or null when there is nothing to restore.
+ *
+ * The list query is read back off the saved href rather than stored beside it:
+ * the feed writes that href from the same query it was given, so the two cannot
+ * drift apart. Restoring it is what keeps a run entered from a result list
+ * paging through that list instead of the shuffled catalog.
+ */
+export function restorableRun(): { origin: string; listQuery?: string } | null {
+  if (!session) return null;
+  const query = href.slice(href.indexOf('?') + 1);
+  return {
+    origin: session.origin,
+    listQuery: href.includes('?') && query ? query : undefined,
+  };
 }
 
 /** The stored session when it came from `origin`, otherwise null. */

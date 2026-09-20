@@ -37,6 +37,18 @@ export function Dialog({ open, onClose, title, children }: Props) {
     return () => el.removeEventListener('cancel', handle);
   }, [onClose]);
 
+  // The dialog sits in the top layer but stays in the DOM under whatever opened
+  // it, so its gestures would otherwise bubble into the pagers there and page
+  // the feed. Nothing inside a modal belongs to anything behind it.
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const stop = (e: Event) => e.stopPropagation();
+    const events = ['pointerdown', 'pointermove', 'pointerup', 'pointercancel', 'wheel'];
+    events.forEach((type) => el.addEventListener(type, stop));
+    return () => events.forEach((type) => el.removeEventListener(type, stop));
+  }, []);
+
   return (
     <dialog
       ref={ref}
@@ -62,7 +74,11 @@ export function Dialog({ open, onClose, title, children }: Props) {
           <X size={16} />
         </button>
       </div>
-      <div className="min-h-0 overflow-y-auto px-4 py-4">{children}</div>
+      {/* Opts back in to vertical panning, which the pager surface underneath
+          turns off for the whole subtree. */}
+      <div className="min-h-0 overflow-y-auto px-4 py-4" style={{ touchAction: 'pan-y' }}>
+        {children}
+      </div>
     </dialog>
   );
 }

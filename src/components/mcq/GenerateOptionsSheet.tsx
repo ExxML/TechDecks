@@ -76,7 +76,7 @@ export function GenerateOptionsSheet({ open, onClose, snippets, kinds, onConfirm
   };
 
   return (
-    <Dialog open={open} onClose={close} title="Generate questions">
+    <Dialog open={open} onClose={close} title="Generate Questions">
       <label className="mb-1.5 block text-[12px] text-[var(--color-text-muted)]">Model</label>
       {loading && <p className="text-[13px] text-[var(--color-text-muted)]">Loading models…</p>}
       {error && <p className="text-[13px] text-[var(--color-incorrect)]">{error}</p>}

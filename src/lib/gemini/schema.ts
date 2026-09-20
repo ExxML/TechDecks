@@ -14,6 +14,37 @@ import { z } from 'zod';
 export const PRESET_KINDS = ['approach', 'algorithm', 'complexity', 'solution'] as const;
 
 /**
+ * Every kind `prompt.ts` writes specific guidance for, grouped by the kind of
+ * problem it suits. Offered as a menu so an author picks a kind the prompt
+ * actually knows how to ask for; kinds stay free text, so a hardware problem
+ * can still define "Timing".
+ *
+ * Each kind appears in one group only, and every entry must have a KIND_RULES
+ * key — a kind listed here without one is offered as a suggestion the prompt
+ * cannot honour.
+ */
+export const KIND_GROUPS = [
+  {
+    label: 'DSA',
+    kinds: [
+      'approach',
+      'algorithm',
+      'complexity',
+      'solution',
+      'edge_case',
+      'data_structure',
+      'bit_manipulation',
+    ],
+  },
+  {
+    label: 'Design',
+    kinds: ['tradeoff', 'scaling', 'consistency', 'failure_mode', 'api_design', 'bottleneck'],
+  },
+  { label: 'Low-Level', kinds: ['memory', 'concurrency'] },
+  { label: 'Quant', kinds: ['probability', 'math', 'estimation'] },
+] as const satisfies ReadonlyArray<{ label: string; kinds: readonly string[] }>;
+
+/**
  * The kinds a problem generates, and whether that generation is grounded.
  *
  * Synced problems always use the preset four in fixed order; the user does not

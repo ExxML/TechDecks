@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { SquarePen } from 'lucide-react';
 import { McqStrip } from './McqStrip';
 import { GenerateOptionsSheet } from './GenerateOptionsSheet';
 import { HistoryPicker } from './HistoryPicker';
@@ -185,38 +186,38 @@ export function McqController({ item, active, onEnterQuestions, inQuestions, onN
         <GeneratingButton startedAt={startedAt} />
       ) : (
         <>
-          <Button
-            variant="primary"
-            className="w-full"
-            onClick={() => (sets.length > 0 ? onEnterQuestions() : requestGenerate())}
-          >
-            {sets.length > 0 ? 'Start' : 'Generate Questions'}
-          </Button>
+          {/* One row, always. An element on its own line would change the
+              bar's height and break the alignment between Start here and the
+              stepper's Description button in State B — the two targets a thumb
+              toggles between without moving. */}
+          <div className="flex items-stretch gap-2">
+            {sets.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setShowHistory(true)}
+                aria-label={`Manage sets — ${sets.length} saved${latest ? `, latest ${scoreOf(latest)}` : ''}`}
+                className="flex shrink-0 items-center gap-1.5 rounded-[4px] border border-[var(--color-border)] px-2.5 text-[13px] leading-none text-[var(--color-text-muted)] transition-colors duration-100 hover:text-[var(--color-text)]"
+              >
+                <SquarePen size={16} />
+                {/* Kept beside the icon: the sheet is otherwise the only place
+                    progress is visible, and it costs no extra row here. */}
+                {latest ? scoreOf(latest) : sets.length}
+              </button>
+            )}
+
+            <Button
+              variant="primary"
+              className="flex-1"
+              onClick={() => (sets.length > 0 ? onEnterQuestions() : requestGenerate())}
+            >
+              {sets.length > 0 ? 'Start' : 'Generate Questions'}
+            </Button>
+          </div>
 
           {sets.length === 0 && hydrated && keyless && (
             <p className="mt-1.5 text-center text-[13px] leading-none text-[var(--color-text-muted)]">
               Needs a Gemini API key.
             </p>
-          )}
-
-          {sets.length > 0 && (
-            <div className="mt-1.5 flex items-center justify-center gap-3">
-              <button
-                type="button"
-                onClick={() => setShowHistory(true)}
-                className="text-[13px] leading-none text-[var(--color-text-muted)] underline underline-offset-2"
-              >
-                {sets.length} set{sets.length === 1 ? '' : 's'}
-                {latest ? ` · latest ${scoreOf(latest)}` : ''}
-              </button>
-              <button
-                type="button"
-                onClick={requestGenerate}
-                className="text-[13px] leading-none text-[var(--color-text-muted)] underline underline-offset-2"
-              >
-                Regenerate
-              </button>
-            </div>
           )}
         </>
       )}

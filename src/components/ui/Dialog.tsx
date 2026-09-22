@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useEffect, useRef, type PointerEvent, type ReactNode } from 'react';
 import { X } from 'lucide-react';
 
 type Props = {
@@ -9,6 +9,8 @@ type Props = {
   readonly title: string;
   readonly children: ReactNode;
 };
+
+const stopPointer = (e: PointerEvent) => e.stopPropagation();
 
 /**
  * Bottom sheet on mobile, centred panel above. Built on <dialog> for native
@@ -38,20 +40,28 @@ export function Dialog({ open, onClose, title, children }: Props) {
   }, [onClose]);
 
   // The dialog sits in the top layer but stays in the DOM under whatever opened
-  // it, so its gestures would otherwise bubble into the pagers there and page
-  // the feed. Nothing inside a modal belongs to anything behind it.
+  // it, so its wheel would otherwise reach the pagers there and page the feed.
+  // The pager binds wheel natively to preventDefault, so this must be native
+  // too. Pointer events are stopped on the JSX below instead: a native listener
+  // here runs before React's root delegation and would swallow them for the
+  // dialog's own contents as well.
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
     const stop = (e: Event) => e.stopPropagation();
-    const events = ['pointerdown', 'pointermove', 'pointerup', 'pointercancel', 'wheel'];
-    events.forEach((type) => el.addEventListener(type, stop));
-    return () => events.forEach((type) => el.removeEventListener(type, stop));
+    el.addEventListener('wheel', stop);
+    return () => el.removeEventListener('wheel', stop);
   }, []);
 
   return (
     <dialog
       ref={ref}
+      // Nothing inside a modal belongs to anything behind it. Stopped at the
+      // React layer, which is where the pagers listen.
+      onPointerDown={stopPointer}
+      onPointerMove={stopPointer}
+      onPointerUp={stopPointer}
+      onPointerCancel={stopPointer}
       onClick={(e) => {
         // Backdrop click: the target is the dialog itself only when the click
         // landed outside the content box.

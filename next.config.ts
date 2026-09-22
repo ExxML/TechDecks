@@ -11,7 +11,7 @@ const nextConfig: NextConfig = {
   // keeps its own docs; the generated ones are churn.
   agentRules: false,
   // Allow LAN devices (phones, tablets) to load dev assets.
-  allowedDevOrigins: ['192.168.*.*', '10.*.*.*'],
+  allowedDevOrigins: ['192.*.*.*', '128.*.*.*', '10.*.*.*'],
 };
 
 export default nextConfig;

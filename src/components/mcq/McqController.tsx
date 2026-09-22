@@ -60,12 +60,20 @@ export function McqController({ item, active, onEnterQuestions, inQuestions, onN
   const globalVersion = useGeneration((s) => s.globalVersion);
   const generate = useGeneration((s) => s.generate);
   const bump = useGeneration((s) => s.bump);
+  const cacheSets = useGeneration((s) => s.cacheSets);
 
-  const [sets, setSets] = useState<readonly McqSet[]>([]);
+  // What the last read for this problem returned, if any. Read once for the
+  // initial state: a remount — toggling states, or paging back into the
+  // window — then has the sets on its first frame, so the action bar never
+  // paints "Generate Questions" over a problem that already has sets.
+  const cached = useGeneration.getState().setsByItem[item.id];
+
+  const [sets, setSets] = useState<readonly McqSet[]>(cached ?? []);
   // False until the first read resolves, so State B can tell "still loading"
-  // apart from "genuinely none" and not flash the fallback at an entry.
-  const [loaded, setLoaded] = useState(false);
-  const [activeSetId, setActiveSetId] = useState<string | null>(null);
+  // apart from "genuinely none" and not flash the fallback at an entry. A
+  // cached mount is already past that.
+  const [loaded, setLoaded] = useState(cached !== undefined);
+  const [activeSetId, setActiveSetId] = useState<string | null>(cached?.[0]?.id ?? null);
   const [showOptions, setShowOptions] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [showKeyDialog, setShowKeyDialog] = useState(false);
@@ -78,6 +86,8 @@ export function McqController({ item, active, onEnterQuestions, inQuestions, onN
     void store
       .list(item.id)
       .then((list) => {
+        // Cached even when this card is gone: the next mount is what benefits.
+        cacheSets(item.id, list);
         if (cancelled) return;
         setSets(list);
         setActiveSetId((current) =>
@@ -93,7 +103,7 @@ export function McqController({ item, active, onEnterQuestions, inQuestions, onN
     return () => {
       cancelled = true;
     };
-  }, [item.id, version, globalVersion, store]);
+  }, [item.id, version, globalVersion, store, cacheSets]);
 
   // Either source counts: a pasted key for this tab, or one stored in Vault
   // that the server will read on our behalf. Null while the Vault check is

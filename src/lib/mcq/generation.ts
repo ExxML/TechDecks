@@ -22,6 +22,11 @@ type GenerationState = {
    *  here rather than in the card so unmounting mid-generation does not
    *  restart the clock. */
   startedAtByItem: Readonly<Record<string, number>>;
+  /** Last sets read for a problem, so a card remounting — toggling between
+   *  reading and questions, or paging back into the window — renders them on
+   *  its first frame instead of an empty list awaiting an async read. Absent
+   *  means never read, which is not the same as read and empty. */
+  setsByItem: Readonly<Record<string, readonly McqSet[]>>;
   /** Bumped whenever a problem's sets change, so views can re-read the store. */
   versionByItem: Readonly<Record<string, number>>;
   /** Bumped when EVERY problem's sets may have changed at once — the sign-in
@@ -30,6 +35,8 @@ type GenerationState = {
   generate: (args: GenerateArgs) => Promise<McqSet | null>;
   bump: (contentItemId: string) => void;
   bumpAll: () => void;
+  /** Records what a read returned, for the next mount to start from. */
+  cacheSets: (contentItemId: string, sets: readonly McqSet[]) => void;
   clearError: (contentItemId: string) => void;
 };
 
@@ -49,10 +56,16 @@ export const useGeneration = create<GenerationState>((set, get) => ({
   statusByItem: {},
   errorByItem: {},
   startedAtByItem: {},
+  setsByItem: {},
   versionByItem: {},
   globalVersion: 0,
 
-  bumpAll: () => set((s) => ({ globalVersion: s.globalVersion + 1 })),
+  // Cached sets came from the outgoing store, so they are dropped rather than
+  // re-served while the re-read runs.
+  bumpAll: () => set((s) => ({ globalVersion: s.globalVersion + 1, setsByItem: {} })),
+
+  cacheSets: (contentItemId, sets) =>
+    set((s) => ({ setsByItem: { ...s.setsByItem, [contentItemId]: sets } })),
 
   bump: (contentItemId) =>
     set((s) => ({

@@ -33,7 +33,7 @@ export function McqStepper({
         type="button"
         onClick={onExit}
         aria-label="Back to description"
-        className="absolute inset-y-0 right-0 flex items-center gap-0.5 pr-2 pl-3 text-[13px] text-[var(--color-text-muted)] transition-colors duration-100 hover:text-[var(--color-text)]"
+        className="absolute inset-y-0 right-0 flex items-center gap-0.5 pr-4 pl-6 text-[13px] text-[var(--color-text-muted)] transition-colors duration-100 hover:text-[var(--color-text)]"
       >
         Description
         <ChevronRight size={16} />

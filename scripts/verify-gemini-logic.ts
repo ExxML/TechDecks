@@ -35,8 +35,11 @@ console.log('=== model filtering ===');
     { name: 'models/gemini-2.5-flash-tts', displayName: 'Flash TTS', supportedGenerationMethods: ['generateContent'] },
     { name: 'models/veo-2', displayName: 'Veo 2', supportedGenerationMethods: ['generateContent'] },
     { name: 'models/gemini-2.0-flash-native-audio', displayName: 'Native Audio', supportedGenerationMethods: ['generateContent'] },
-    { name: 'models/gemini-1.0-pro', displayName: 'Legacy', supportedGenerationMethods: ['generateContent'] },
     { name: 'models/aqa', displayName: 'AQA', supportedGenerationMethods: ['generateContent'] },
+    { name: 'models/gemma-3-27b-it', displayName: 'Gemma 3 27B', supportedGenerationMethods: ['generateContent'] },
+    { name: 'models/gemini-2.5-flash-live', displayName: 'Gemini 2.5 Flash Live', supportedGenerationMethods: ['generateContent'] },
+    { name: 'models/gemini-2.0-flash-001', displayName: 'Gemini 2.0 Flash 001', supportedGenerationMethods: ['generateContent'] },
+    { name: 'models/gemini-2.5-flash-preview-09-2025', displayName: 'Gemini 2.5 Flash Preview', supportedGenerationMethods: ['generateContent'] },
   ];
   const kept = filterTextModels(raw).map((m) => m.name);
   check('keeps flash + pro', kept.includes('models/gemini-2.5-flash') && kept.includes('models/gemini-2.5-pro'));
@@ -45,9 +48,42 @@ console.log('=== model filtering ===');
   check('drops tts', !kept.some((n) => n.includes('tts')));
   check('drops veo/video', !kept.some((n) => n.includes('veo')));
   check('drops native-audio', !kept.some((n) => n.includes('native-audio')));
-  check('drops gemini-1.0 legacy', !kept.includes('models/gemini-1.0-pro'));
   check('drops aqa', !kept.includes('models/aqa'));
+  check('drops gemma (no JSON mode)', !kept.some((n) => n.includes('gemma')));
+  check('drops live', !kept.some((n) => n.includes('live')));
+  check('drops dated snapshots', !kept.some((n) => /-001$|-09-2025$/.test(n)));
   check('exactly 2 survive', kept.length === 2, `got ${kept.length}: ${kept.join(', ')}`);
+}
+
+console.log('\n=== model ordering ===');
+{
+  const expected: Array<[string, string]> = [
+    ['gemini-3.8-flash', 'Gemini 3.8 Flash'],
+    ['gemini-3.7-flash', 'Gemini 3.7 Flash'],
+    ['gemini-3.6-flash', 'Gemini 3.6 Flash'],
+    ['gemini-3.5-flash', 'Gemini 3.5 Flash'],
+    ['gemini-3.5-flash-lite', 'Gemini 3.5 Flash Lite'],
+    ['gemini-3.1-flash-lite', 'Gemini 3.1 Flash Lite'],
+    ['gemini-3.1-flash-lite-preview', 'Gemini 3.1 Flash Lite Preview'],
+    ['gemini-3.1-pro-preview', 'Gemini 3.1 Pro Preview'],
+    ['gemini-3-flash-preview', 'Gemini 3 Flash Preview'],
+    ['gemini-2.5-flash', 'Gemini 2.5 Flash'],
+    ['gemini-2.5-flash-lite', 'Gemini 2.5 Flash-Lite'],
+    ['gemini-2.5-pro', 'Gemini 2.5 Pro'],
+    ['gemini-flash-latest', 'Gemini Flash Latest'],
+    ['gemini-flash-lite-latest', 'Gemini Flash-Lite Latest'],
+    ['gemini-pro-latest', 'Gemini Pro Latest'],
+  ];
+  // Deterministic shuffle so the result cannot depend on input order.
+  const shuffled = expected.map((_, i) => expected[(i * 7) % expected.length]);
+  const raw = shuffled.map(([id, displayName]) => ({
+    name: `models/${id}`,
+    displayName,
+    supportedGenerationMethods: ['generateContent'],
+  }));
+  const got = filterTextModels(raw).map((m) => m.displayName);
+  const want = expected.map(([, displayName]) => displayName);
+  check('newest version first, alphabetical within, aliases last', got.join('|') === want.join('|'), got.join(', '));
 }
 
 console.log('\n=== upstream error mapping (never forwards upstream text) ===');

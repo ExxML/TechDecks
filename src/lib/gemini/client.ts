@@ -122,14 +122,16 @@ type RawModel = {
 };
 
 /**
- * Exclude non-text output modalities.
+ * Keep only general-purpose, text-in/text-out Gemini models.
  *
- * models.list does not reliably expose an output-modality field, so this is a
- * name-pattern heuristic — and it is a heuristic, which is why the generate
+ * models.list does not reliably expose an output-modality field, so these are
+ * name-pattern heuristics — and it is a heuristic, which is why the generate
  * path also fails safe when a model returns no text part.
  */
-const NON_TEXT_PATTERN = /image|imagen|tts|audio|native-audio|veo|video|embedding|aqa/i;
-const LEGACY_PATTERN = /gemini-1\.0|text-bison|chat-bison|palm/i;
+// Media, speech, realtime, agentic and robotics variants.
+const NON_TEXT_PATTERN = /image|tts|audio|live|transcribe|omni|computer-use|customtools|robotics/i;
+// Dated snapshots (e.g. "-001", "-09-2025") of models already listed under their base ID.
+const SNAPSHOT_PATTERN = /-\d{2,4}(-\d{2,4})?$/;
 
 export function filterTextModels(raw: readonly unknown[]): GeminiModel[] {
   const out: GeminiModel[] = [];
@@ -146,15 +148,31 @@ export function filterTextModels(raw: readonly unknown[]): GeminiModel[] {
       : [];
     if (!methods.includes('generateContent')) continue;
 
-    // 2. Exclude non-text output modalities by name pattern.
-    if (NON_TEXT_PATTERN.test(name) || NON_TEXT_PATTERN.test(displayName)) continue;
+    // 2. Gemini family only — excludes Imagen, Veo, AQA, and Gemma (no JSON mode).
+    const id = stripModelPrefix(name);
+    if (!id.startsWith('gemini-')) continue;
 
-    // 3. Exclude deprecated/legacy families.
-    if (LEGACY_PATTERN.test(name)) continue;
+    // 3. Exclude non-text output modalities by name pattern.
+    if (NON_TEXT_PATTERN.test(id) || NON_TEXT_PATTERN.test(displayName)) continue;
+
+    // 4. Exclude dated snapshots duplicating a base model.
+    if (SNAPSHOT_PATTERN.test(id)) continue;
 
     out.push({ name, displayName });
   }
-  return out;
+  // Newest version first, then alphabetical within a version.
+  return out.sort(
+    (a, b) => modelVersion(b.name) - modelVersion(a.name) || a.displayName.localeCompare(b.displayName),
+  );
+}
+
+/**
+ * Version number from a model name (e.g. "models/gemini-2.5-flash" → 2.5).
+ * Unversioned aliases (e.g. "gemini-flash-latest") return 0 so they sort last.
+ */
+function modelVersion(name: string): number {
+  const match = /^gemini-(\d+(?:\.\d+)?)-/.exec(stripModelPrefix(name));
+  return match ? parseFloat(match[1]) : 0;
 }
 
 export async function listModels(apiKey: string): Promise<GeminiModel[]> {

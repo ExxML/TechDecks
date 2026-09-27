@@ -46,26 +46,6 @@ function cachedFor(key: string): GeminiModel[] | null {
   return sessionCache?.key === key ? sessionCache.models : null;
 }
 
-/**
- * Newest stable Flash-tier model from the fetched list — generation runs on the
- * user's own key and is called on every problem. No hardcoded fallback: a
- * retired ID would fail every generation with no obvious cause.
- */
-function pickDefault(models: readonly GeminiModel[]): string | null {
-  const stableFlash = models.filter(
-    (m) => /flash/i.test(m.name) && !/preview|exp|experimental|thinking|lite/i.test(m.name),
-  );
-  const pool = stableFlash.length > 0 ? stableFlash : models.filter((m) => /flash/i.test(m.name));
-  if (pool.length === 0) return models[0]?.name ?? null;
-
-  // Highest version number wins: "models/gemini-2.5-flash" > "models/gemini-1.5-flash".
-  const versionOf = (name: string): number => {
-    const m = /gemini-(\d+)\.(\d+)/.exec(name);
-    return m ? Number(m[1]) * 100 + Number(m[2]) : 0;
-  };
-  return [...pool].sort((a, b) => versionOf(b.name) - versionOf(a.name))[0].name;
-}
-
 type FetchState = {
   readonly models: GeminiModel[];
   readonly loading: boolean;
@@ -146,6 +126,8 @@ export function useModels(enabled: boolean) {
     // Nothing is in flight until the caller enables the fetch.
     loading: state.loading && enabled,
     error: state.error,
-    defaultModelName: state.models.length > 0 ? pickDefault(state.models) : null,
+    // Top of the newest-first list. No hardcoded fallback: a retired ID would
+    // fail every generation with no obvious cause.
+    defaultModelName: state.models[0]?.name ?? null,
   };
 }

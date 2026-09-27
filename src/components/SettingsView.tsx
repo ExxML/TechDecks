@@ -33,7 +33,7 @@ export function SettingsView() {
   const storedKey = deleted ? false : vaultKey;
   const pending = storedKey === null;
   const canLoadModels = Boolean(apiKey) || storedKey === true;
-  const { models, loading, error } = useModels(canLoadModels);
+  const { models, loading, error, defaultModelName } = useModels(canLoadModels);
 
   useEffect(() => hydrate(), [hydrate]);
 
@@ -119,11 +119,10 @@ export function SettingsView() {
         ) : (
           <div className="mt-2">
             <Select
-              value={model ?? ''}
-              onChange={(e) => setModel(e.target.value || null)}
+              value={model ?? defaultModelName ?? ''}
+              onChange={(e) => setModel(e.target.value)}
               aria-label="Default model"
             >
-              <option value="">Newest Flash model</option>
               {models.map((m) => (
                 <option key={m.name} value={m.name}>
                   {m.displayName}

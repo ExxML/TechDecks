@@ -130,7 +130,7 @@ type RawModel = {
  */
 // Media, speech, realtime, agentic and robotics variants.
 const NON_TEXT_PATTERN = /image|tts|audio|live|transcribe|omni|computer-use|customtools|robotics/i;
-// Dated snapshots (e.g. "-001", "-09-2025") of models already listed under their base ID.
+// Dated snapshot suffix (e.g. "-001", "-09-2025").
 const SNAPSHOT_PATTERN = /-\d{2,4}(-\d{2,4})?$/;
 
 export function filterTextModels(raw: readonly unknown[]): GeminiModel[] {
@@ -152,46 +152,68 @@ export function filterTextModels(raw: readonly unknown[]): GeminiModel[] {
     const id = stripModelPrefix(name);
     if (!id.startsWith('gemini-')) continue;
 
-    // 3. Exclude non-text output modalities by name pattern.
-    if (NON_TEXT_PATTERN.test(id) || NON_TEXT_PATTERN.test(displayName)) continue;
-
-    // 4. Exclude dated snapshots duplicating a base model.
-    if (SNAPSHOT_PATTERN.test(id)) continue;
+    // 3. Exclude non-text output modalities by ID pattern.
+    if (NON_TEXT_PATTERN.test(id)) continue;
 
     out.push({ name, displayName });
   }
-  // Newest version first, then alphabetical within a version.
-  return out.sort(
-    (a, b) => modelVersion(b.name) - modelVersion(a.name) || a.displayName.localeCompare(b.displayName),
-  );
+
+  // 4. Exclude dated snapshots whose base model is also listed. Previews often
+  // ship only as a dated ID, so those stay.
+  const ids = new Set(out.map((m) => stripModelPrefix(m.name)));
+  return out
+    .filter((m) => {
+      const id = stripModelPrefix(m.name);
+      const base = id.replace(SNAPSHOT_PATTERN, '');
+      return base === id || !ids.has(base);
+    })
+    // Newest version first, then alphabetical within a version.
+    .sort((a, b) => {
+      const [aMajor, aMinor] = modelVersion(a.name);
+      const [bMajor, bMinor] = modelVersion(b.name);
+      return bMajor - aMajor || bMinor - aMinor || a.displayName.localeCompare(b.displayName);
+    });
 }
 
 /**
- * Version number from a model name (e.g. "models/gemini-2.5-flash" → 2.5).
- * Unversioned aliases (e.g. "gemini-flash-latest") return 0 so they sort last.
+ * [major, minor] from a model name (e.g. "models/gemini-3.10-flash" → [3, 10]).
+ * Unversioned aliases (e.g. "gemini-flash-latest") return [0, 0] so they sort last.
  */
-function modelVersion(name: string): number {
-  const match = /^gemini-(\d+(?:\.\d+)?)-/.exec(stripModelPrefix(name));
-  return match ? parseFloat(match[1]) : 0;
+function modelVersion(name: string): [number, number] {
+  const match = /^gemini-(\d+)(?:\.(\d+))?-/.exec(stripModelPrefix(name));
+  return match ? [Number(match[1]), Number(match[2] ?? 0)] : [0, 0];
 }
 
 export async function listModels(apiKey: string): Promise<GeminiModel[]> {
-  let res: Response;
-  try {
-    res = await fetch(`${BASE}/models?pageSize=200`, {
-      headers: { 'x-goog-api-key': apiKey },
-      signal: AbortSignal.timeout(20_000),
-    });
-  } catch {
-    throw new GeminiError('Could not reach Gemini — check your connection', 502);
-  }
-  if (!res.ok) throw mapUpstreamError(res.status, await readErrorReason(res));
+  // One budget across all pages, so paging cannot outrun the route's maxDuration.
+  const signal = AbortSignal.timeout(20_000);
+  const models: unknown[] = [];
+  let pageToken: string | undefined;
 
-  const body: unknown = await res.json();
-  const models =
-    typeof body === 'object' && body !== null && Array.isArray((body as { models?: unknown }).models)
-      ? ((body as { models: unknown[] }).models)
-      : [];
+  do {
+    const params = new URLSearchParams({ pageSize: '200' });
+    if (pageToken) params.set('pageToken', pageToken);
+
+    let res: Response;
+    try {
+      res = await fetch(`${BASE}/models?${params}`, {
+        headers: { 'x-goog-api-key': apiKey },
+        signal,
+      });
+    } catch {
+      throw new GeminiError('Could not reach Gemini — check your connection', 502);
+    }
+    if (!res.ok) throw mapUpstreamError(res.status, await readErrorReason(res));
+
+    const body: unknown = await res.json();
+    const page = (typeof body === 'object' && body !== null ? body : {}) as {
+      models?: unknown;
+      nextPageToken?: unknown;
+    };
+    if (Array.isArray(page.models)) models.push(...page.models);
+    pageToken = typeof page.nextPageToken === 'string' && page.nextPageToken ? page.nextPageToken : undefined;
+  } while (pageToken);
+
   return filterTextModels(models);
 }
 

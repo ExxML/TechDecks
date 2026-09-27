@@ -38,8 +38,10 @@ console.log('=== model filtering ===');
     { name: 'models/aqa', displayName: 'AQA', supportedGenerationMethods: ['generateContent'] },
     { name: 'models/gemma-3-27b-it', displayName: 'Gemma 3 27B', supportedGenerationMethods: ['generateContent'] },
     { name: 'models/gemini-2.5-flash-live', displayName: 'Gemini 2.5 Flash Live', supportedGenerationMethods: ['generateContent'] },
+    { name: 'models/gemini-2.0-flash', displayName: 'Gemini 2.0 Flash', supportedGenerationMethods: ['generateContent'] },
     { name: 'models/gemini-2.0-flash-001', displayName: 'Gemini 2.0 Flash 001', supportedGenerationMethods: ['generateContent'] },
     { name: 'models/gemini-2.5-flash-preview-09-2025', displayName: 'Gemini 2.5 Flash Preview', supportedGenerationMethods: ['generateContent'] },
+    { name: 'models/gemini-3-flash', displayName: 'Gemini 3 Flash (image + audio input)', supportedGenerationMethods: ['generateContent'] },
   ];
   const kept = filterTextModels(raw).map((m) => m.name);
   check('keeps flash + pro', kept.includes('models/gemini-2.5-flash') && kept.includes('models/gemini-2.5-pro'));
@@ -51,13 +53,16 @@ console.log('=== model filtering ===');
   check('drops aqa', !kept.includes('models/aqa'));
   check('drops gemma (no JSON mode)', !kept.some((n) => n.includes('gemma')));
   check('drops live', !kept.some((n) => n.includes('live')));
-  check('drops dated snapshots', !kept.some((n) => /-001$|-09-2025$/.test(n)));
-  check('exactly 2 survive', kept.length === 2, `got ${kept.length}: ${kept.join(', ')}`);
+  check('drops a snapshot whose base is listed', !kept.includes('models/gemini-2.0-flash-001'));
+  check('keeps a date-only snapshot', kept.includes('models/gemini-2.5-flash-preview-09-2025'));
+  check('ignores the display name', kept.includes('models/gemini-3-flash'));
+  check('exactly 5 survive', kept.length === 5, `got ${kept.length}: ${kept.join(', ')}`);
 }
 
 console.log('\n=== model ordering ===');
 {
   const expected: Array<[string, string]> = [
+    ['gemini-3.10-flash', 'Gemini 3.10 Flash'],
     ['gemini-3.8-flash', 'Gemini 3.8 Flash'],
     ['gemini-3.7-flash', 'Gemini 3.7 Flash'],
     ['gemini-3.6-flash', 'Gemini 3.6 Flash'],

@@ -158,7 +158,7 @@ export function FilterSheet({ open, onClose, filters, onApply, scope = 'catalog'
               onChange={(e) => setDraft((f) => ({ ...f, bookmarkedOnly: e.target.checked }))}
               className="h-4 w-4 accent-[var(--color-accent)]"
             />
-            <span className="text-[13px] text-[var(--color-text)]">Bookmarked only</span>
+            <span className="text-[13px] text-[var(--color-text)]">Bookmarked</span>
           </label>
         </section>
       )}
@@ -176,7 +176,7 @@ export function FilterSheet({ open, onClose, filters, onApply, scope = 'catalog'
               onChange={(e) => setDraft((f) => ({ ...f, withMcqsOnly: e.target.checked }))}
               className="h-4 w-4 accent-[var(--color-accent)]"
             />
-            <span className="text-[13px] text-[var(--color-text)]">Has generated MCQs</span>
+            <span className="text-[13px] text-[var(--color-text)]">In-Progress</span>
           </label>
         </section>
       )}

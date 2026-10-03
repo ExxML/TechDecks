@@ -53,7 +53,7 @@ function formatVisited(iso: string): string {
   if (elapsed < HOUR) return `${Math.floor(elapsed / MINUTE)}m ago`;
   if (elapsed < DAY) return `${Math.floor(elapsed / HOUR)}h ago`;
   if (elapsed < 7 * DAY) return `${Math.floor(elapsed / DAY)}d ago`;
-  return then.toLocaleDateString(undefined, {
+  return then.toLocaleDateString('en-US', {
     month: 'short',
     day: 'numeric',
     // The year only earns its place once it is not the current one.

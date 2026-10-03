@@ -1,12 +1,14 @@
 import Link from 'next/link';
+import { ArrowUpRight } from 'lucide-react';
 import { DifficultyBadge } from './ui/Badge';
 import { BookmarkButton } from './BookmarkButton';
 import { searchHref } from '@/lib/searchParams';
+import { sourceUrl } from '@/lib/source';
 import { EMPTY_FILTERS, type ContentItem } from '@/lib/types';
 
 /**
- * The card's density cap: title, difficulty, acRate, bookmark, and at most 3
- * tags. Nothing else — another row here turns the card into a dashboard.
+ * The card's density cap: title, source link, difficulty, acRate, bookmark, and
+ * at most 3 tags. Nothing else — another row here turns the card into a dashboard.
  *
  * Scrolls away with the description: it is the first block inside the body
  * scroller, so it inherits that scroller's horizontal padding.
@@ -14,6 +16,7 @@ import { EMPTY_FILTERS, type ContentItem } from '@/lib/types';
 export function ProblemHeader({ item }: { readonly item: ContentItem }) {
   const acRate = item.metadata.acRate;
   const tags = item.tags.slice(0, 3);
+  const source = sourceUrl(item);
 
   return (
     <div className="pt-4 pb-3">
@@ -24,6 +27,18 @@ export function ProblemHeader({ item }: { readonly item: ContentItem }) {
           )}
           {item.title}
         </h2>
+        {source && (
+          <a
+            href={source}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Open original problem"
+            className="flex h-8 w-8 items-center justify-center text-[var(--color-text-muted)] transition-colors duration-100 hover:text-[var(--color-text)]"
+            draggable={false}
+          >
+            <ArrowUpRight size={16} aria-hidden="true" />
+          </a>
+        )}
         {/* Renders nothing when signed out — bookmarks are an authenticated
             write, so a tappable icon there would only ever fail. */}
         <BookmarkButton contentItemId={item.id} />

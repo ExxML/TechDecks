@@ -8,6 +8,9 @@ type Props = {
   readonly onClose: () => void;
   readonly title: string;
   readonly children: ReactNode;
+  /** Lays the body out as a column, so a child with `min-h-0` shrinks to fit
+   *  the sheet rather than the whole body scrolling. */
+  readonly fit?: boolean;
 };
 
 const stopPointer = (e: PointerEvent) => e.stopPropagation();
@@ -16,7 +19,7 @@ const stopPointer = (e: PointerEvent) => e.stopPropagation();
  * Bottom sheet on mobile, centred panel above. Built on <dialog> for native
  * focus trapping, Escape handling, and top-layer stacking.
  */
-export function Dialog({ open, onClose, title, children }: Props) {
+export function Dialog({ open, onClose, title, children, fit = false }: Props) {
   const ref = useRef<HTMLDialogElement>(null);
 
   useEffect(() => {
@@ -86,7 +89,10 @@ export function Dialog({ open, onClose, title, children }: Props) {
       </div>
       {/* Opts back in to vertical panning, which the pager surface underneath
           turns off for the whole subtree. */}
-      <div className="min-h-0 overflow-y-auto px-4 py-4" style={{ touchAction: 'pan-y' }}>
+      <div
+        className={`min-h-0 overflow-y-auto px-4 py-4 ${fit ? 'flex flex-col' : ''}`}
+        style={{ touchAction: 'pan-y' }}
+      >
         {children}
       </div>
     </dialog>

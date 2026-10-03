@@ -29,7 +29,7 @@ const DIFFICULTY_LABEL: Record<Difficulty, string> = {
 /** One is always selected, which is what makes the progress filters exclusive. */
 const MCQ_OPTIONS: readonly { value: McqProgress | null; label: string }[] = [
   { value: null, label: 'Any' },
-  { value: 'in-progress', label: 'In-Progress' },
+  { value: 'in-progress', label: 'In Progress' },
   { value: 'completed', label: 'Completed' },
 ];
 
@@ -99,7 +99,7 @@ export function FilterSheet({ open, onClose, filters, onApply, scope = 'catalog'
   const sortedTags = tagSort.compare ? [...tags].sort(tagSort.compare) : tags;
 
   return (
-    <Dialog open={open} onClose={onClose} title="Filters">
+    <Dialog open={open} onClose={onClose} title="Filters" fit>
       <section>
         <h3 className="mb-2 text-[12px] text-[var(--color-text-muted)]">Difficulty</h3>
         <div className="flex gap-2">
@@ -200,7 +200,7 @@ export function FilterSheet({ open, onClose, filters, onApply, scope = 'catalog'
         </section>
       )}
 
-      <section className="mt-4">
+      <section className="mt-4 flex min-h-0 flex-col">
         <div className="mb-2 flex items-baseline justify-between gap-2">
           <h3 className="text-[12px] text-[var(--color-text-muted)]">
             Topics {draft.tags.length > 0 && `· ${draft.tags.length} selected`}
@@ -219,8 +219,9 @@ export function FilterSheet({ open, onClose, filters, onApply, scope = 'catalog'
           <p className="text-[13px] text-[var(--color-text-muted)]">Loading topics…</p>
         ) : (
           // Tags are 175 rows. Capping them here keeps the section from
-          // burying the rest of the sheet without hiding any of them.
-          <div className="flex max-h-[30dvh] flex-wrap content-start gap-1.5 overflow-y-auto">
+          // burying the rest of the sheet without hiding any of them, and on a
+          // short screen they shrink so the sheet fits without scrolling.
+          <div className="flex max-h-[30dvh] min-h-16 flex-wrap content-start gap-1.5 overflow-y-auto">
             {sortedTags.map((t) => {
               const on = draft.tags.includes(t.slug);
               return (

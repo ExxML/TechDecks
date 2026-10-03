@@ -44,8 +44,15 @@ export function McqStrip({
   onExit,
 }: Props) {
   const rootRef = useRef<HTMLDivElement>(null);
-  const [panel, setPanel] = useState(0);
+  // Opens on the first unanswered question, or the summary once all are done.
+  const [panel, setPanel] = useState(() => {
+    const next = set.questions.findIndex((_, i) => (set.answers[i] ?? null) === null);
+    return next === -1 ? set.questions.length : next;
+  });
   const [pageSize, setPageSize] = useState(0);
+  // Until the width is measured the offset is 0, so opening past the first
+  // panel would otherwise animate in from it.
+  const [placed, setPlaced] = useState(false);
   const panelCount = set.questions.length + 1; // + summary
   // A regenerated set can be shorter than the panel we were on, so the index is
   // clamped on read rather than corrected by an effect after a bad render.
@@ -62,6 +69,20 @@ export function McqStrip({
     observer.observe(el);
     return () => observer.disconnect();
   }, []);
+
+  // Re-enable the transition only after the placed frame has been painted, as
+  // the feed does.
+  useEffect(() => {
+    if (!pageSize || placed) return;
+    let second = 0;
+    const first = requestAnimationFrame(() => {
+      second = requestAnimationFrame(() => setPlaced(true));
+    });
+    return () => {
+      cancelAnimationFrame(first);
+      cancelAnimationFrame(second);
+    };
+  }, [pageSize, placed]);
 
   const pager = usePager({
     axis: "x",
@@ -167,7 +188,7 @@ export function McqStrip({
           style={{
             width: panelCount * pageSize,
             transform: `translate3d(${pager.offset}px, 0, 0)`,
-            transition: pager.dragging
+            transition: pager.dragging || !placed
               ? "none"
               : "transform 260ms cubic-bezier(0.22, 1, 0.36, 1)",
             visibility: pageSize ? undefined : "hidden",

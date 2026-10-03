@@ -88,7 +88,7 @@ export function CompactList<T extends CompactListItem>({
                   </span>
                 )}
                 {item.mcq_progress === 'completed' && (
-                  <span className="flex items-center gap-0.5 text-[12px] leading-tight text-[var(--color-correct)]">
+                  <span className="flex items-center gap-0.5 text-[12px] leading-tight text-[var(--color-text-muted)]">
                     <Check size={12} strokeWidth={2.5} aria-hidden="true" />
                     Completed
                   </span>

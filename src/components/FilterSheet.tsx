@@ -7,7 +7,7 @@ import { Input } from './ui/Input';
 import { createClient } from '@/lib/supabase/client';
 import { useUser } from '@/lib/auth';
 import { fetchTagCounts } from '@/lib/queries';
-import type { Difficulty, SearchFilters, SearchScope, TagCount } from '@/lib/types';
+import type { Difficulty, McqProgress, SearchFilters, SearchScope, TagCount } from '@/lib/types';
 
 type Props = {
   readonly open: boolean;
@@ -25,6 +25,13 @@ const DIFFICULTY_LABEL: Record<Difficulty, string> = {
   medium: 'Medium',
   hard: 'Hard',
 };
+
+/** One is always selected, which is what makes the progress filters exclusive. */
+const MCQ_OPTIONS: readonly { value: McqProgress | null; label: string }[] = [
+  { value: null, label: 'Any' },
+  { value: 'in-progress', label: 'In-Progress' },
+  { value: 'completed', label: 'Completed' },
+];
 
 /** Cycled in order by the header toggle, so adding a mode extends the cycle. */
 const TAG_SORTS = [
@@ -169,15 +176,27 @@ export function FilterSheet({ open, onClose, filters, onApply, scope = 'catalog'
           toggle it applies to every scope: no list is already only these. */}
       {user && (
         <section className="mt-4">
-          <label className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              checked={draft.withMcqsOnly}
-              onChange={(e) => setDraft((f) => ({ ...f, withMcqsOnly: e.target.checked }))}
-              className="h-4 w-4 accent-[var(--color-accent)]"
-            />
-            <span className="text-[13px] text-[var(--color-text)]">In-Progress</span>
-          </label>
+          <h3 className="mb-2 text-[12px] text-[var(--color-text-muted)]">MCQs</h3>
+          <div className="flex gap-2">
+            {MCQ_OPTIONS.map(({ value, label }) => {
+              const on = draft.mcqProgress === value;
+              return (
+                <button
+                  key={label}
+                  type="button"
+                  aria-pressed={on}
+                  onClick={() => setDraft((f) => ({ ...f, mcqProgress: value }))}
+                  className="flex-1 rounded-[4px] border px-3 py-2 text-[13px] leading-none transition-colors duration-100"
+                  style={{
+                    borderColor: on ? 'var(--color-accent)' : 'var(--color-border)',
+                    color: on ? 'var(--color-accent)' : 'var(--color-text-muted)',
+                  }}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
         </section>
       )}
 
@@ -248,7 +267,7 @@ export function FilterSheet({ open, onClose, filters, onApply, scope = 'catalog'
               acMin: null,
               acMax: null,
               bookmarkedOnly: false,
-              withMcqsOnly: false,
+              mcqProgress: null,
             }))
           }
         >

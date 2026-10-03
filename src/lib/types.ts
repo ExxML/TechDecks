@@ -8,6 +8,10 @@
 
 export type Difficulty = 'easy' | 'medium' | 'hard';
 
+/** Where the caller stands on a problem's latest MCQ set: some question still
+ *  unanswered, or every one answered, right or wrong. */
+export type McqProgress = 'in-progress' | 'completed';
+
 export type CodeSnippet = {
   readonly lang: string;
   readonly langSlug: string;
@@ -114,9 +118,10 @@ export type SearchFilters = {
   readonly acMin: number | null;
   readonly acMax: number | null;
   readonly bookmarkedOnly: boolean;
-  /** Problems the caller has generated at least one MCQ set for. Signed-in
-   *  only: anonymous sets live in localStorage and the search never sees them. */
-  readonly withMcqsOnly: boolean;
+  /** Problems whose latest MCQ set is at this progress; null for any problem.
+   *  Signed-in only: anonymous sets live in localStorage and the search never
+   *  sees them. */
+  readonly mcqProgress: McqProgress | null;
 };
 
 export const EMPTY_FILTERS: SearchFilters = {
@@ -126,7 +131,7 @@ export const EMPTY_FILTERS: SearchFilters = {
   acMin: null,
   acMax: null,
   bookmarkedOnly: false,
-  withMcqsOnly: false,
+  mcqProgress: null,
 };
 
 /** True when a filter set would return the whole catalog unchanged. */
@@ -138,7 +143,7 @@ export function filtersAreEmpty(f: SearchFilters): boolean {
     f.acMin === null &&
     f.acMax === null &&
     !f.bookmarkedOnly &&
-    !f.withMcqsOnly
+    f.mcqProgress === null
   );
 }
 

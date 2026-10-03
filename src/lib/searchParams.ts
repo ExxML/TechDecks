@@ -1,4 +1,4 @@
-import { EMPTY_FILTERS, type Difficulty, type SearchFilters } from './types';
+import { EMPTY_FILTERS, type Difficulty, type McqProgress, type SearchFilters } from './types';
 
 /**
  * Filters live in the URL, not in component state.
@@ -13,6 +13,7 @@ import { EMPTY_FILTERS, type Difficulty, type SearchFilters } from './types';
  */
 
 const DIFFICULTIES: readonly Difficulty[] = ['easy', 'medium', 'hard'];
+const MCQ_PROGRESS: readonly McqProgress[] = ['in-progress', 'completed'];
 
 function parseList(raw: string | null): string[] {
   if (!raw) return [];
@@ -34,6 +35,7 @@ export function filtersFromParams(params: URLSearchParams): SearchFilters {
 
   const acMin = parsePercent(params.get('acMin'));
   const acMax = parsePercent(params.get('acMax'));
+  const mcqs = params.get('mcqs');
 
   return {
     ...EMPTY_FILTERS,
@@ -45,7 +47,7 @@ export function filtersFromParams(params: URLSearchParams): SearchFilters {
     acMin: acMin !== null && acMax !== null && acMin > acMax ? acMax : acMin,
     acMax: acMin !== null && acMax !== null && acMin > acMax ? acMin : acMax,
     bookmarkedOnly: params.get('bookmarked') === '1',
-    withMcqsOnly: params.get('mcqs') === '1',
+    mcqProgress: MCQ_PROGRESS.find((p) => p === mcqs) ?? null,
   };
 }
 
@@ -58,7 +60,7 @@ export function paramsFromFilters(filters: SearchFilters): URLSearchParams {
   if (filters.acMin !== null) params.set('acMin', String(filters.acMin));
   if (filters.acMax !== null) params.set('acMax', String(filters.acMax));
   if (filters.bookmarkedOnly) params.set('bookmarked', '1');
-  if (filters.withMcqsOnly) params.set('mcqs', '1');
+  if (filters.mcqProgress) params.set('mcqs', filters.mcqProgress);
   return params;
 }
 

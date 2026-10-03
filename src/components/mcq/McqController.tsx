@@ -311,8 +311,6 @@ function StateBFallback({ onBack }: { readonly onBack: () => void }) {
 }
 
 function scoreOf(set: McqSet): string {
-  const answered = set.answers.filter((a) => a !== null);
-  if (answered.length === 0) return 'not started';
-  const correct = answered.filter((a) => a?.correct).length;
+  const correct = set.answers.filter((a) => a?.correct).length;
   return `${correct}/${set.questions.length}`;
 }

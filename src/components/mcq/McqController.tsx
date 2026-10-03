@@ -95,7 +95,8 @@ export function McqController({ item, active, onEnterQuestions, inQuestions, onN
         );
       })
       .catch(() => {
-        if (!cancelled) setSets([]);
+        // Offline, say: keep the last read rather than blanking a strip in use.
+        if (!cancelled) setSets(useGeneration.getState().setsByItem[item.id] ?? []);
       })
       .finally(() => {
         if (!cancelled) setLoaded(true);

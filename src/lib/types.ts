@@ -169,6 +169,9 @@ export type SearchHit = {
   /** When the row entered the list being searched — the visit time on
    *  `history`, the bookmark time on `bookmarks`. Null on `catalog`. */
   readonly listed_at: string | null;
+  /** The caller's progress on the latest MCQ set; null with no set, and always
+   *  for an anonymous caller, whose sets the search never sees. */
+  readonly mcq_progress: McqProgress | null;
 };
 
 export type SearchPage = {

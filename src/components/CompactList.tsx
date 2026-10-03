@@ -1,8 +1,9 @@
 'use client';
 
 import Link from 'next/link';
+import { Check } from 'lucide-react';
 import { DifficultyBadge } from './ui/Badge';
-import type { Difficulty, LeetCodeMetadata } from '@/lib/types';
+import type { Difficulty, LeetCodeMetadata, McqProgress } from '@/lib/types';
 
 /**
  * The minimum a row needs, satisfied by both `ContentItem` and `SearchHit`.
@@ -16,6 +17,8 @@ export type CompactListItem = {
   readonly difficulty: Difficulty | null;
   readonly metadata: LeetCodeMetadata;
   readonly sort_key: number | null;
+  /** Only search hits carry it; a row without one shows no progress. */
+  readonly mcq_progress?: McqProgress | null;
 };
 
 type Props<T extends CompactListItem> = {
@@ -82,6 +85,12 @@ export function CompactList<T extends CompactListItem>({
                 {typeof item.metadata.acRate === 'number' && (
                   <span className="text-[12px] leading-tight text-[var(--color-text-muted)]">
                     {item.metadata.acRate.toFixed(1)}%
+                  </span>
+                )}
+                {item.mcq_progress === 'completed' && (
+                  <span className="flex items-center gap-0.5 text-[12px] leading-tight text-[var(--color-correct)]">
+                    <Check size={12} strokeWidth={2.5} aria-hidden="true" />
+                    Completed
                   </span>
                 )}
               </span>

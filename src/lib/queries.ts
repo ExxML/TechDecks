@@ -306,6 +306,7 @@ type SearchRow = {
   body_format: string;
   total_count: number;
   listed_at: string | null;
+  mcq_progress: string | null;
 };
 
 /** How each scope narrows and orders the search. See SearchScope. */
@@ -419,6 +420,8 @@ export async function searchContentItems(
       visibility: r.visibility === 'private' ? 'private' : 'public',
       body_format: r.body_format === 'markdown' ? 'markdown' : 'html',
       listed_at: r.listed_at,
+      mcq_progress:
+        r.mcq_progress === 'in-progress' || r.mcq_progress === 'completed' ? r.mcq_progress : null,
     })),
     // count(*) over () repeats the same total on every row, so any row will do.
     total: rows.length > 0 ? Number(rows[0].total_count) : 0,
